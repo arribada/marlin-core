@@ -1,0 +1,16 @@
+		gok -i formachineid new
+		cp ./gokrazy/provision/config.json ~/gokrazy/hello/
+		inject machineid into ~/gokrazy/hello/config.json
+		cp gokrazy/secrets/ts.key gokrazy/secrets/wifi.json ~/gokrazy/hello/
+		sudo ./rpiboot -v -d mass-storage-gadget64
+		diskutil list # to find eMMC showing up as removable storage now
+		CGO_ENABLED=1 gok --parent_dir ~/gokrazy -i hello overwrite --full /dev/disk5
+		**********
+		cd gokrazy
+		cp -r marlin-augnat1 marlin-augnatN
+		edit marlin-augnatN/config.json
+			Hostname, machine-id
+		cd ..
+		add marlin-augnatN to make.go
+		go run ./make.go -vessel marlin-augnatN
+		ssh marlin-augnatN && echo 127.0.0.1:514 | tee /perm/remote_syslog/target
