@@ -1,5 +1,5 @@
 // Copyright (c) The Arribada initiative.
-// Licensed under the MIT License.
+// Licensed under the GPLv3 License.
 
 // TODO: maybe later move that whole file in a new pkg/watcher/event package
 

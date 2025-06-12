@@ -1,5 +1,5 @@
 // Copyright (c) The Arribada initiative.
-// Licensed under the MIT License.
+// Licensed under the GPLv3 License.
 
 package gps
 

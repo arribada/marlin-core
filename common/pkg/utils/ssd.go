@@ -1,5 +1,5 @@
 // Copyright (c) The Arribada initiative.
-// Licensed under the MIT License.
+// Licensed under the GPLv3 License.
 
 package utils
 
@@ -34,7 +34,7 @@ func main() {
 		// in gokrazy we won't want that, as there is no point to restart the service in that case
 		log.Fatal(err)
 	}
-	
+
 	if err := PrepSSD(theLabel, theDevice); err != nil {
 		// in gokrazy we won't want that, as there is no point to restart the service in that case
 		log.Fatal(err)
@@ -56,12 +56,12 @@ func getLabel(label, device string) (err error, critical bool) {
 	if err != nil {
 		return err, false
 	}
-	
+
 	lbl := fs.Label()
 	if lbl != label {
 		return fmt.Errorf("label %v not found (%v found instead)", label, lbl), false
 	}
-		
+
 	return nil, false
 }
 

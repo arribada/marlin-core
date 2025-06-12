@@ -1,5 +1,5 @@
 // Copyright (c) The Arribada initiative.
-// Licensed under the MIT License.
+// Licensed under the GPLv3 License.
 
 package main
 
@@ -24,7 +24,7 @@ var (
 
 func init() {
 	flag.StringVar(&flagVessel, "vessel", "", "vessel to update")
-	flag.StringVar(&flagGoproxy, "goproxy", "direct", "to set GOPROXY during the build in docker. Use 'make athens' to start a local one beforehand. then run with e.g. http://192.168.0.47:3000")
+	flag.StringVar(&flagGoproxy, "goproxy", "https://proxy.golang.org,direct", "to set GOPROXY during the build in docker. Use 'make athens' to start a local one beforehand. then run with e.g. http://192.168.0.47:3000")
 }
 
 var (

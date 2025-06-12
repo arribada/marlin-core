@@ -1,5 +1,5 @@
 // Copyright (c) The Arribada initiative.
-// Licensed under the MIT License.
+// Licensed under the GPLv3 License.
 
 /*
 This program should be the equivalent of the ruleset below.
