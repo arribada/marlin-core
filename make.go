@@ -108,7 +108,7 @@ func injectSecrets(vessel string) ([]byte, error) {
 	newCfg := make([]byte, len(cfg))
 	copy(newCfg, cfg)
 	for k, v := range secrets {
-		newCfg = bytes.Replace(newCfg, []byte(k), []byte(v), 1)
+		newCfg = bytes.ReplaceAll(newCfg, []byte(k), []byte(v))
 	}
 
 	return cfg, os.WriteFile(cfgFile, newCfg, 0644)
