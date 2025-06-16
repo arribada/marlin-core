@@ -1,0 +1,10 @@
+github.com/antihax/optional v1.0.0 h1:xK2lYat7ZLaVVcIuj82J8kIro4V6kDe0AUDFboUCwcg=
+github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
+github.com/gokrazy/gokapi v0.0.0-20250222074648-ad9864c7e9f3 h1:ea0lHQKr5UWOrWdCJeX4GGp/fKB9Vbv7OnOeOiOTiNc=
+github.com/gokrazy/gokapi v0.0.0-20250222074648-ad9864c7e9f3/go.mod h1:UqcVGm3ecUvD23iALY6DovEETO2AzUgRQ2S5gryBLDs=
+github.com/gokrazy/internal v0.0.0-20250214203001-b1610a6e7271 h1:CG2P/McW77phMh+iUSsGweJd4VwGhGS4UQJ92gV7Ihg=
+github.com/gokrazy/internal v0.0.0-20250214203001-b1610a6e7271/go.mod h1:vvnvmAv/38qDCHJ9b6Bq7yvUap6DcGtjZWjGuv/RA1k=
+github.com/gokrazy/mkfs v0.0.0-20250222074856-d105dd464c02 h1:cnIGDBGKeRDTNKegAX1Bf+IoDa1hmz/RyCeBlN4cwLE=
+github.com/gokrazy/mkfs v0.0.0-20250222074856-d105dd464c02/go.mod h1:Mv5WthFDkCphTsRroTvavq2cpkaUFgp0j7PcO6Dk9AY=
+golang.org/x/oauth2 v0.23.0 h1:PbgcYx2W7i4LvjJWEbf0ngHV6qJYr86PkAV3bXdLEbs=
+golang.org/x/oauth2 v0.23.0/go.mod h1:XYTD2NtWslqkgxebSiOHnXEap4TF09sJSc7H1sXbhtI=
