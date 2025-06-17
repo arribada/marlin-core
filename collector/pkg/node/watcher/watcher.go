@@ -4,6 +4,7 @@
 package watcher
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -369,7 +370,7 @@ func (ew *EventsWatcher) handleEvent(event fsnotify.Event) {
 				}
 				// we keep going because we still do have a vid file at newFullPath to probe
 			}
-			if err := probeVid(newFullPath); err != nil {
+			if _, err := ProbeVid(newFullPath); err != nil {
 				logger.LogAndSend(fmt.Sprintf("error while probing video file %s: %v", newFullPath, err), true)
 				return
 			}
@@ -820,12 +821,29 @@ func (up *uploader) uploadRoot() error {
 	return nil
 }
 
-func probeVid(fullPath string) error {
-	// TODO: embed ffprobe?
-	return nil
-	out, err := exec.Command("ffprobe", "-hide_banner", fullPath).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("%v", string(out))
+// should be a const, but actually a var so we can change it during tests
+var FFprobebin string
+
+func init() {
+	// location in production on gokrazy
+	FFprobebin = "/usr/local/bin/ffprobe"
+	loc, err := exec.LookPath("ffprobe")
+	if err == nil {
+		FFprobebin = loc
+		return
 	}
-	return nil
+}
+
+func ProbeVid(fullPath string) (string, error) {
+	var stderr bytes.Buffer
+	var stdout bytes.Buffer
+	cmd := exec.Command(FFprobebin, "-hide_banner", fullPath)
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+	err := cmd.Run()
+	out := stdout.String() + stderr.String()
+	if err != nil {
+		return "", fmt.Errorf("while probing %v: %v", fullPath, out)
+	}
+	return out, nil
 }

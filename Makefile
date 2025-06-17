@@ -13,9 +13,16 @@ fsck: dosfstools/fsck.fat
 dosfstools/fsck.fat:
 	@cd dosfstools && make
 
+.PHONY: ffprobe
+ffprobe: ## generate arm64 ffprobe
+ffprobe: ffprobe/ffprobe
+
+ffprobe/ffprobe:
+	@cd ffprobe && make
+
 .PHONY: gaf
 gaf: ## generate gaf
-gaf: fsck validinstance
+gaf: fsck ffprobe validinstance
 	@docker build --progress=plain -f Dockerfile --build-arg gitcreds=${GITCREDS} --build-arg instance=${INSTANCE} --build-arg GOPROXY=${GOPROXY} --target gaf --output=. .
 
 .PHONY: update
@@ -26,7 +33,7 @@ update: validinstance
 
 .PHONY: forceupdate
 forceupdate: ## push update directly to device, usually not what you want.
-forceupdate: fsck validinstance
+forceupdate: fsck ffprobe validinstance
 	@docker build --progress=plain -f Dockerfile --build-arg gitcreds=${GITCREDS} --build-arg instance=${INSTANCE} --build-arg GOPROXY=${GOPROXY} --target forceupdate .
 
 .PHONY: builddir
@@ -56,6 +63,12 @@ athens:
 	@./bin/athens_launcher.sh
 
 ### the recipes below are the ones for when we are already within docker, so they are called from within the Dockerfile ###
+
+.PHONY: tests
+tests: # run all tests
+tests:
+	@cd collector && go test ./...
+	@cd transcriber && go test ./...
 
 .PHONY: gaf2
 gaf2: ## create gaf for ingestion

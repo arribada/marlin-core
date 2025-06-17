@@ -21,6 +21,10 @@ WORKDIR /home/marlin/src/github.com/arribada/marlin-core/dosfstools
 COPY ./dosfstools .
 RUN make fsck.fat
 
+WORKDIR /home/marlin/src/github.com/arribada/marlin-core/ffprobe
+COPY ./ffprobe .
+RUN make ffprobe
+
 WORKDIR /home/marlin/src/github.com/arribada/marlin-core/syslogd
 COPY ./syslogd .
 
@@ -62,6 +66,9 @@ COPY ./gokrazy/secrets/http-password.txt .
 # keep it as last rule, so we are in right place for other stages
 WORKDIR /home/marlin/src/github.com/arribada/marlin-core
 COPY ./Makefile .
+
+# run all tests
+RUN make tests
 
 FROM builder AS gengaf
 ARG instance=doesnotexist

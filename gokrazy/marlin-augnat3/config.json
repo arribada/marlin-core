@@ -16,11 +16,15 @@
 		"github.com/arribada/marlin-core/transcriber/cmd/transcribe",
 		"github.com/gokrazy/syslogd/cmd/gokr-syslogd",
 		"github.com/arribada/marlin-core/collector/cmd/collect",
+		"github.com/arribada/marlin-core/collector/integration",
 		"github.com/arribada/marlin-core/gengps/cmd/gengps",
 		"github.com/arribada/marlin-core/captain/cmd/captain",
 		"github.com/arribada/marlin-core/gateway/cmd/gateway"
 	],
 	"PackageConfig": {
+		"github.com/arribada/marlin-core/collector/integration": {
+			"DontStart": true
+		},
 		"github.com/gokrazy/gokrazy/cmd/randomd": {
 			"ExtraFileContents": {
 				"/etc/machine-id": "7d8b0eb4cc3a4e21b89f6ff0ec7e9657\n"
@@ -38,6 +42,9 @@
 			]
 		},
 		"github.com/arribada/marlin-core/collector/cmd/collect": {
+			"ExtraFilePaths": {
+				"/usr/local/bin/ffprobe": "/home/marlin/src/github.com/arribada/marlin-core/ffprobe/ffprobe"
+			},
 			"WaitForClock": true,
 			"Environment": [
 				"VIDEO_DEVICE=VIDEO_DEVICE_VAL",

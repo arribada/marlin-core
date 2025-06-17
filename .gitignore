@@ -41,11 +41,13 @@ cgohello/bin/
 dosfstools/fsck.fat
 dosfstools/fatlabel
 dosfstools/mkfs.fat
+ffprobe/ffprobe
 captain/mycaptain
 button/mybutton
 core/myi360
 gateway/mygateway
 collector/mycollector
+*data/
 
 builddir/
 !gokrazy/*/builddir/

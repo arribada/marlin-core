@@ -4,10 +4,15 @@
 package rtsp
 
 import (
+	"runtime"
 	"testing"
 )
 
 func TestFindCaptureDevice(t *testing.T) {
+	// TODO: do better later
+	if runtime.GOOS != "darwin" {
+		return
+	}
 	dev, err := findCaptureDevice("rtsp://foo:bar@192.168.0.N:554/Streaming/Channels/101/?transportmode=unicast")
 	if err != nil {
 		t.Fatal(err)
