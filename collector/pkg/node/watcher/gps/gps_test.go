@@ -168,7 +168,7 @@ func testRealData(t *testing.T, old bool) {
 		if !strings.HasPrefix(name, "gps-") {
 			continue
 		}
-		indices, speed, tees, err := g.addEventsFile(filepath.Join("./testdata", name), old, true)
+		indices, speed, tees, err := g.AddEventsFileOpts(filepath.Join("./testdata", name), old, true)
 		if err != nil {
 			if strings.HasPrefix(err.Error(), `invalid character '\x00' looking for beginning of value`) {
 				t.Logf("while adding events from %v: %v", name, err)
