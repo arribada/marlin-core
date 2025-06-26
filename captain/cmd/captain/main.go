@@ -36,7 +36,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&flagHost, "host", ":8080", "host:port on which we listen")
+	flag.StringVar(&flagHost, "host", ":7143", "host:port on which we listen")
 	flag.StringVar(&flagDevice, "device", "", "the path to the device that is going to be formatted. ex: /dev/sda")
 	flag.StringVar(&flagLabel, "label", "MARLIN_DATA", "the volume label set on the filesystem at the very last stage of the device preparation. Serves as a sentinel for subsequent runs.")
 	flag.StringVar(&flagMount, "mnt", "", "the mount point for the drive. empty means no mounting.")

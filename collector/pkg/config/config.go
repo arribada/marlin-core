@@ -19,7 +19,8 @@ var (
 	flagDataDir string
 	flagVerbose bool
 
-	flagCaptain string
+	flagCaptain   string
+	flagReportURL string
 
 	flagGPSEnabled       bool
 	flagGPSDevice        string
@@ -35,7 +36,7 @@ var (
 	flagUploadInterval int
 
 	flagControllerEnabled bool
-	flagControllerHost    string
+	flagHost              string
 	flagTranscriberURL    string
 )
 
@@ -43,7 +44,8 @@ func init() {
 	flag.StringVar(&flagDataDir, "outdir", "/perm/marlin", "output data directory")
 	flag.BoolVar(&flagVerbose, "v", true, "be verbose")
 
-	flag.StringVar(&flagCaptain, "captain", "localhost:7403", "where to reach the captain. ignore captain if empty.")
+	flag.StringVar(&flagCaptain, "captain", "localhost:7143", "where to reach the captain. ignore captain if empty.")
+	flag.StringVar(&flagReportURL, "report_url", "http://localhost:7144?report=last", "where to get the report from the databrowser.")
 
 	flag.BoolVar(&flagGPSEnabled, "gps", true, "enable GPS capture")
 	flag.StringVar(&flagGPSDevice, "gps_device", "/tmp/gps", "GPS capture device")
@@ -61,12 +63,13 @@ func init() {
 	// TODO: du interval
 
 	flag.BoolVar(&flagControllerEnabled, "controller", true, "enable controller handler")
-	flag.StringVar(&flagControllerHost, "controller_host", ":8360", "Host:port where we listen for controller messages.")
-	flag.StringVar(&flagTranscriberURL, "transcriber_url", "http://localhost:8361", "URL where to send messages for transcriber.")
+	flag.StringVar(&flagHost, "host", ":7140", "Host:port where we listen for controller messages.")
+	flag.StringVar(&flagTranscriberURL, "transcriber_url", "http://localhost:7141", "URL where to send messages for transcriber.")
 }
 
 type Config struct {
 	Captain     string
+	ReportURL   string
 	NodeID      string
 	VideorRTSP  rtsp.Config
 	GPSr        gpsr.Config
@@ -140,7 +143,7 @@ func parseController() (*controller.Config, error) {
 	return &controller.Config{
 		Enabled:        flagControllerEnabled,
 		Verbose:        flagVerbose,
-		Host:           flagControllerHost,
+		Host:           flagHost,
 		TranscriberURL: flagTranscriberURL,
 	}, nil
 }
@@ -149,7 +152,8 @@ func Parse() (*Config, error) {
 	flag.Parse()
 
 	cfg := &Config{
-		Captain: flagCaptain,
+		Captain:   flagCaptain,
+		ReportURL: flagReportURL,
 	}
 
 	if flagGPSEnabled {

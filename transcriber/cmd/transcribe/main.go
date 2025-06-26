@@ -51,10 +51,10 @@ func init() {
 	flag.StringVar(&flagModelpath, "modelpath", "./data/models/ggml-base.en.bin", "path to the model file used for this run")
 	flag.BoolVar(&flagStdout, "stdout", false, "write transcribed text to stdout in addition to the json file")
 	flag.BoolVar(&flagVerbose, "v", false, "be verbose")
-	flag.StringVar(&flagSource, "source", "http://localhost:8080", "Where to actively fetch audio from.")
-	flag.StringVar(&flagCaptain, "captain", "localhost:7403", "wait for captain (to have mounted an external drive at this host:port. Skip if empty.")
+	flag.StringVar(&flagSource, "source", "http://controller.local:7142", "Where to actively fetch audio from.")
+	flag.StringVar(&flagCaptain, "captain", "localhost:7143", "wait for captain (to have mounted an external drive at this host:port. Skip if empty.")
 	flag.BoolVar(&flagNoBracket, "nobracket", true, "Automatically filters out all non actual speech (music, silences, etc).")
-	flag.StringVar(&flagHost, "host", ":8080", "host:port on which we receive start/stop messages")
+	flag.StringVar(&flagHost, "host", ":7141", "host:port on which we receive start/stop messages")
 	flag.IntVar(&flagGCGracePeriod, "gcgrace", 86400, "the period (in seconds) during which an audio file, after it's been created, is excluded from garbage collection")
 	flag.IntVar(&flagGCInterval, "gcinterval", 3600, "the interval in between subsequent garbage collection runs")
 }

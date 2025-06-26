@@ -6,10 +6,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"runtime"
 	"syscall"
+	"time"
 
 	"github.com/arribada/marlin-core/collector/pkg/config"
 	"github.com/arribada/marlin-core/collector/pkg/controller"
@@ -20,6 +22,7 @@ import (
 	"github.com/arribada/marlin-core/collector/pkg/node/watcher"
 	"github.com/arribada/marlin-core/collector/pkg/types"
 	"github.com/arribada/marlin-core/common/pkg/utils"
+	"github.com/mpl/basicauth"
 
 	"github.com/go-kit/kit/log/level"
 	"github.com/oklog/run"
@@ -45,6 +48,8 @@ func main() {
 			log.Fatal(err)
 		}
 	}
+
+	go getReport(cfg.ReportURL)
 
 	var g run.Group
 
@@ -149,6 +154,38 @@ func main() {
 	}
 
 	_ = level.Info(lgr).Log("msg", "exiting")
+}
+
+func getReport(reportURL string) {
+	if reportURL == "" {
+		return
+	}
+	up, err := basicauth.NewUserPass("")
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
+
+	time.Sleep(30 * time.Second)
+	req, err := http.NewRequest("GET", reportURL, nil)
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
+	req.SetBasicAuth(up.U, up.P)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
+	// TODO: make it all in one line for goog cloud?
+	log.Println(string(data))
 }
 
 func ExitOnErr(err error, msg string) {

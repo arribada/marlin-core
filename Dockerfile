@@ -40,6 +40,9 @@ COPY ./gengps .
 WORKDIR /home/marlin/src/github.com/arribada/marlin-core/captain
 COPY ./captain .
 
+WORKDIR /home/marlin/src/github.com/arribada/marlin-core/databrowser
+COPY ./databrowser .
+
 WORKDIR /home/marlin/src/github.com/arribada/marlin-core/transcriber
 COPY ./transcriber .
 RUN cd ./whisper.cpp/bindings/go && make whisper

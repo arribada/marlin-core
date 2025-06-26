@@ -47,6 +47,7 @@ button/mybutton
 core/myi360
 gateway/mygateway
 collector/mycollector
+databrowser/mybrowser
 *data/
 
 builddir/
