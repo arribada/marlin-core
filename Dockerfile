@@ -17,6 +17,9 @@ RUN ./gitcreds.sh $gitcreds
 
 RUN mkdir -p /home/marlin
 
+WORKDIR /home/marlin/src/github.com/gokrazy/kernel.rpi
+COPY ./kernel.rpi .
+
 WORKDIR /home/marlin/src/github.com/arribada/marlin-core/dosfstools
 COPY ./dosfstools .
 RUN make fsck.fat
@@ -30,6 +33,9 @@ RUN make ffprobe
 
 WORKDIR /home/marlin/src/github.com/arribada/marlin-core/syslogd
 COPY ./syslogd .
+
+WORKDIR /home/marlin/src/github.com/arribada/marlin-core/cellular
+COPY ./cellular .
 
 WORKDIR /home/marlin/src/github.com/arribada/marlin-core/gateway
 COPY ./gateway .

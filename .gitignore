@@ -49,8 +49,13 @@ gateway/mygateway
 collector/mycollector
 databrowser/mybrowser
 gc/mygc
+cellular/mycell
+at/myat
 *data/
 
 builddir/
 !gokrazy/*/builddir/
 artifact/
+cellular/freeze/
+kernel.rpi/
+!gokrazy/*/kernel.rpi/
