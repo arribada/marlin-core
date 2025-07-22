@@ -56,6 +56,7 @@
 			],
 			"CommandLineFlags": [
 				"-host=:7140",
+				"-captain=localhost:7143",
 				"-video=false",
 				"-gps_device=/tmp/gps"
 			]
@@ -83,8 +84,6 @@
 				"-modelpath=/perm/transcribe/models/ggml-base.en.bin",
 				"-v=true",
 				"-stdout=true",
-				"-gcgrace=86400",
-				"-gcinterval=3600",
 				"-outdir=/perm/marlin"
 			]
 		},

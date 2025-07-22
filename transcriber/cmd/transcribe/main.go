@@ -26,7 +26,6 @@ import (
 	//	"github.com/arribada/marlin-core-common/pkg/common"
 	"github.com/arribada/marlin-core/common/pkg/datatype"
 	"github.com/arribada/marlin-core/common/pkg/utils"
-	"github.com/arribada/marlin-core/transcriber/pkg/gc"
 
 	"github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
 	"github.com/go-audio/audio"
@@ -34,16 +33,14 @@ import (
 )
 
 var (
-	flagSource        string
-	flagOutDir        string
-	flagModelpath     string
-	flagStdout        bool
-	flagCaptain       string
-	flagNoBracket     bool
-	flagHost          string
-	flagVerbose       bool
-	flagGCGracePeriod int // in seconds
-	flagGCInterval    int // in seconds
+	flagSource    string
+	flagOutDir    string
+	flagModelpath string
+	flagStdout    bool
+	flagCaptain   string
+	flagNoBracket bool
+	flagHost      string
+	flagVerbose   bool
 )
 
 func init() {
@@ -55,8 +52,6 @@ func init() {
 	flag.StringVar(&flagCaptain, "captain", "localhost:7143", "wait for captain (to have mounted an external drive at this host:port. Skip if empty.")
 	flag.BoolVar(&flagNoBracket, "nobracket", true, "Automatically filters out all non actual speech (music, silences, etc).")
 	flag.StringVar(&flagHost, "host", ":7141", "host:port on which we receive start/stop messages")
-	flag.IntVar(&flagGCGracePeriod, "gcgrace", 86400, "the period (in seconds) during which an audio file, after it's been created, is excluded from garbage collection")
-	flag.IntVar(&flagGCInterval, "gcinterval", 3600, "the interval in between subsequent garbage collection runs")
 }
 
 const (
@@ -108,12 +103,6 @@ func main() {
 			log.Fatal(http.ListenAndServe(flagHost, nil))
 		}()
 	}
-
-	go func() {
-		if err := audioGC(); err != nil {
-			log.Fatalf("Garbage Collector for audio failed: %v", err)
-		}
-	}()
 
 	// Load the model
 	model, err = whisper.New(flagModelpath)
@@ -555,22 +544,4 @@ func writeWav(timeStamp time.Time, asInts []int) error {
 
 	newName := filepath.Join(flagOutDir, filepath.Base(name))
 	return os.Rename(name, newName)
-}
-
-func audioGC() error {
-	g := gc.GC{
-		RootDir:     flagOutDir,
-		Verbose:     flagVerbose,
-		GracePeriod: flagGCGracePeriod,
-	}
-	for {
-		log.Printf("Starting a GC run")
-		if err := g.Run(); err != nil {
-			return err
-		}
-		// TODO: do we need to make sure that a previous GC run is over before we start
-		// a new one? In theory yes, if the interval is short enough. In practice probably no
-		// need to worry about it.
-		time.Sleep(time.Duration(flagGCInterval) * time.Second)
-	}
 }

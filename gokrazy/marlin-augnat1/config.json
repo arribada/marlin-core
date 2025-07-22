@@ -16,12 +16,29 @@
 		"github.com/arribada/marlin-core/transcriber/cmd/transcribe",
 		"github.com/gokrazy/syslogd/cmd/gokr-syslogd",
 		"github.com/arribada/marlin-core/collector/cmd/collect",
+		"github.com/arribada/marlin-core/gc/cmd/gc",
 		"github.com/arribada/marlin-core/collector/integration",
 		"github.com/arribada/marlin-core/databrowser/cmd/databrowser",
 		"github.com/arribada/marlin-core/gengps/cmd/gengps",
 		"github.com/arribada/marlin-core/captain/cmd/captain"
 	],
 	"PackageConfig": {
+		"github.com/arribada/marlin-core/gc/cmd/gc": {
+			"WaitForClock": true,
+			"Environment": [
+				"AZURE_CONN=AZURE_CONN_VAL",
+				"AZURE_SHARE=AZURE_SHARE_VAL"
+			],
+			"CommandLineFlags": [
+				"-captain=localhost:7143",
+				"-dry=false",
+				"-v=true",
+				"-gcgrace=86400",
+				"-gcinterval=600",
+				"-rootdir=/perm/marlin",
+				"-aggressive=true"
+			]
+		},
 		"github.com/gokrazy/gokrazy/cmd/dhcp": {
 			"DontStart": true
 		},
@@ -86,8 +103,6 @@
 				"-modelpath=/perm/transcribe/models/ggml-base.en.bin",
 				"-v=true",
 				"-stdout=true",
-				"-gcgrace=86400",
-				"-gcinterval=3600",
 				"-outdir=/perm/marlin"
 			]
 		},

@@ -1,4 +1,3 @@
 #!/bin/sh
 
-gus-server -image_dir ~/tmp/gus/ -listen :8655 &
-
+gus-server -image_dir ~/tmp/gus/ -database_source ~/tmp/gus-db -listen :8655 &
