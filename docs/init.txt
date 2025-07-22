@@ -1,10 +1,15 @@
 		gok -i formachineid new
 		cp ./gokrazy/provision/config.json ~/gokrazy/hello/
 		inject machineid into ~/gokrazy/hello/config.json
+		# TODO: commit a fixed provision/config.json with wired enabled
+		# enable wired dhcp again.
+		# TODO: also quid of advertize routes for TS?
 		cp gokrazy/secrets/ts.key gokrazy/secrets/wifi.json ~/gokrazy/hello/
+		# need breakglass file as well
 		sudo ./rpiboot -v -d mass-storage-gadget64
 		diskutil list # to find eMMC showing up as removable storage now
 		CGO_ENABLED=1 gok --parent_dir ~/gokrazy -i hello overwrite --full /dev/disk5
+		# on ubuntu CGO_ENABLED=1 sudo env "PATH=$PATH" gok...
 		**********
 		cd gokrazy
 		cp -r marlin-augnat1 marlin-augnatN
@@ -14,3 +19,8 @@
 		add marlin-augnatN to make.go
 		go run ./make.go -vessel marlin-augnatN
 		ssh marlin-augnatN && echo 127.0.0.1:514 | tee /perm/remote_syslog/target
+		**********
+	- in mikrotik:
+		- IP -> DHCP-server -> Networks. On the existing one:
+		- set gateway to 192.168.88.25? (our core)
+		- set DNS server to google ones		

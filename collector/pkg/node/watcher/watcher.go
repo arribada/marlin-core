@@ -25,7 +25,6 @@ import (
 	"github.com/arribada/marlin-core/common/pkg/utils"
 	"golang.org/x/sys/unix"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/file"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/fileerror"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share"
 	"github.com/fsnotify/fsnotify"
@@ -674,13 +673,8 @@ func (up *uploader) syncToAzure(fullPath string) error {
 		return fmt.Errorf("failed to upload contents for file %v: %v", tempFilename, err)
 	}
 
-	// TODO: for Marlin, remove the force replace. We only enforce it now because
-	// Will's has already uploaded a lot of partial files with the final name
-	// (because they have been uploaded before the .part change). And so a rename
-	// without overwriting would fail.
-	repl := true
 	rnPath := filepath.Join(datetime, datatype, filename)
-	if _, err := fClient.Rename(context.TODO(), rnPath, &file.RenameOptions{ReplaceIfExists: &repl}); err != nil {
+	if _, err := fClient.Rename(context.TODO(), rnPath, nil); err != nil {
 		return fmt.Errorf("failed to rename %v into %v: %v", tempFilename, filename, err)
 	}
 

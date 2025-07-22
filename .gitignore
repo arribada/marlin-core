@@ -48,6 +48,7 @@ core/myi360
 gateway/mygateway
 collector/mycollector
 databrowser/mybrowser
+gc/mygc
 *data/
 
 builddir/
