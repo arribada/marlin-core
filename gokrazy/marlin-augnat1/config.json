@@ -1,0 +1,135 @@
+{
+	"Hostname": "marlin-augnat1",
+	"Update": {},
+	"Environment": [
+		"GOOS=linux",
+		"GOARCH=arm64"
+	],
+	"Packages": [
+		"github.com/gokrazy/serial-busybox",
+		"github.com/gokrazy/breakglass",
+		"github.com/gokrazy/wifi",
+		"tailscale.com/cmd/tailscaled",
+		"tailscale.com/cmd/tailscale",
+		"github.com/gokrazy/mkfs",
+		"github.com/gokrazy/selfupdate",
+		"github.com/arribada/marlin-core/transcriber/cmd/transcribe",
+		"github.com/gokrazy/syslogd/cmd/gokr-syslogd",
+		"github.com/arribada/marlin-core/collector/cmd/collect",
+		"github.com/arribada/marlin-core/collector/integration",
+		"github.com/arribada/marlin-core/gengps/cmd/gengps",
+		"github.com/arribada/marlin-core/captain/cmd/captain",
+		"github.com/arribada/marlin-core/gateway/cmd/gateway"
+	],
+	"PackageConfig": {
+		"github.com/arribada/marlin-core/collector/integration": {
+			"DontStart": true
+		},
+		"github.com/gokrazy/gokrazy/cmd/randomd": {
+			"ExtraFileContents": {
+				"/etc/machine-id": "a3a3a35e2b024ddf9e8aa7505231936f\n"
+			}
+		},
+		"github.com/arribada/marlin-core/captain/cmd/captain": {
+			"ExtraFilePaths": {
+				"/usr/local/bin/fsck.fat": "/home/marlin/src/github.com/arribada/marlin-core/dosfstools/fsck.fat",
+				"/usr/local/bin/mkfs.fat": "/home/marlin/src/github.com/arribada/marlin-core/dosfstools/mkfs.fat"
+			},
+			"CommandLineFlags": [
+				"-device=/dev/sda",
+				"-host=:7143",
+				"-label=MARLIN_DATA",
+				"-mnt=/perm/marlin"
+			]
+		},
+		"github.com/arribada/marlin-core/collector/cmd/collect": {
+			"ExtraFilePaths": {
+				"/usr/local/bin/ffprobe": "/home/marlin/src/github.com/arribada/marlin-core/ffprobe/ffprobe"
+			},
+			"WaitForClock": true,
+			"Environment": [
+				"VIDEO_DEVICE=VIDEO_DEVICE_VAL",
+				"AZURE_CONN=AZURE_CONN_VAL",
+				"AZURE_SHARE=AZURE_SHARE_VAL"
+			],
+			"CommandLineFlags": [
+				"-video=false",
+				"-gps_device=/tmp/gps"
+			]
+		},
+		"github.com/arribada/marlin-core/transcriber/cmd/transcribe": {
+			"WaitForClock": true,
+			"GoBuildFlags": [
+				"-ldflags=-extldflags '-static -L /home/marlin/src/github.com/arribada/marlin-core/transcriber/whisper.cpp'"
+			],
+			"CommandLineFlags": [
+				"-source=TRANSCRIBE_SOURCE",
+				"-captain=localhost:7403",
+				"-host=:8361",
+				"-modelpath=/perm/transcribe/models/ggml-base.en.bin",
+				"-v=true",
+				"-stdout=true",
+				"-gcgrace=86400",
+				"-gcinterval=3600",
+				"-outdir=/perm/marlin"
+			]
+		},
+		"github.com/gokrazy/breakglass": {
+			"CommandLineFlags": [
+				"-authorized_keys=/etc/breakglass.authorized_keys"
+			],
+			"ExtraFilePaths": {
+				"/etc/breakglass.authorized_keys": "breakglass.authorized_keys"
+			}
+		},
+		"github.com/gokrazy/gokrazy/cmd/dhcp": {
+			"CommandLineFlags": [
+				"-extra_route_priority=10"
+			]
+		},
+		"github.com/gokrazy/gokrazy/cmd/heartbeat": {
+			"CommandLineFlags": [
+				"--gus_server=GUS_SERVER"
+			]
+		},
+		"github.com/gokrazy/gokrazy/cmd/ntp": {
+			"CommandLineFlags": [
+				"0.pool.ntp.org",
+				"1.pool.ntp.org",
+				"2.pool.ntp.org",
+				"3.pool.ntp.org"
+			]
+		},
+		"github.com/gokrazy/selfupdate": {
+			"CommandLineFlags": [
+				"--gus_server=GUS_SERVER",
+				"--check_frequency=20s"
+			]
+		},
+		"github.com/gokrazy/syslogd/cmd/gokr-syslogd": {
+			"CommandLineFlags": [
+				"-listen=:514",
+				"-goog_creds=/etc/marlin-sa-key.json"
+			],
+			"ExtraFilePaths": {
+				"/etc/marlin-sa-key.json": "marlin-sa-key.json"
+			}
+		},
+		"github.com/gokrazy/wifi": {
+			"ExtraFilePaths": {
+				"/etc/wifi.json": "wifi.json"
+			}
+		},
+		"tailscale.com/cmd/tailscale": {
+			"CommandLineFlags": [
+				"up",
+				"--auth-key=file:/etc/ts.key"
+			],
+			"ExtraFilePaths": {
+				"/etc/ts.key": "ts.key"
+			}
+		}
+	},
+	"SerialConsole": "disabled",
+	"InternalCompatibilityFlags": {}
+}

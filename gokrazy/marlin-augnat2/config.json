@@ -33,7 +33,8 @@
 		},
 		"github.com/arribada/marlin-core/captain/cmd/captain": {
 			"ExtraFilePaths": {
-				"/usr/local/bin/fsck.fat": "/home/marlin/src/github.com/arribada/marlin-core/dosfstools/fsck.fat"
+				"/usr/local/bin/fsck.fat": "/home/marlin/src/github.com/arribada/marlin-core/dosfstools/fsck.fat",
+				"/usr/local/bin/mkfs.fat": "/home/marlin/src/github.com/arribada/marlin-core/dosfstools/mkfs.fat"
 			},
 			"CommandLineFlags": [
 				"-device=/dev/nvme0n1",
