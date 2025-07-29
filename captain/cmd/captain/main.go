@@ -21,8 +21,6 @@ import (
 
 	diskfs "github.com/diskfs/go-diskfs"
 	"github.com/diskfs/go-diskfs/backend/file"
-	"github.com/diskfs/go-diskfs/disk"
-	"github.com/diskfs/go-diskfs/filesystem"
 	"github.com/diskfs/go-diskfs/partition/gpt"
 	"golang.org/x/sys/unix"
 )
@@ -45,7 +43,10 @@ func init() {
 
 const (
 	maxFATLabelSize = 11
-	fsckbin         = "/usr/local/bin/fsck.fat"
+	// TODO: use fsck from busybox instead? Given that the mkfs one is
+	// bugged, we want to be careful about fsck as well.
+	fsckbin = "/usr/local/bin/fsck.fat"
+	mkfsbin = "/usr/local/bin/mkfs.fat"
 )
 
 func checkFlags() {
@@ -278,7 +279,8 @@ func checkFS(part string) (bool, error) {
 		}
 		break
 	}
-	// technically should be > 0 , but turns out even when fs seems empty, fsck says 1 file
+	// technically should be > 0 , but turns out even when fs seems empty, fsck says 1 file.
+	// And that is because of the volume label itself I think.
 	if nbFiles > 1 {
 		// hasFiles more important than scanning error at this point
 		return true, nil
@@ -355,6 +357,13 @@ func check(device, label string) (hasFiles, needsPrep bool, err error) {
 	return hasFiles, false, nil
 }
 
+func mkfs(part, label string) error {
+	cmd := exec.Command(mkfsbin, "-n", label, part)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
 const (
 	partName           = "marlin"
 	sectorSize         = 512
@@ -401,14 +410,41 @@ func prepSSD(label, device string) error {
 	}
 
 	log.Printf("Creating filesystem with label %s", label)
-	theFS, err := theDisk.CreateFilesystem(disk.FilesystemSpec{
-		Partition:   1,
-		FSType:      filesystem.TypeFat32,
-		VolumeLabel: label,
-	})
+	// TODO: something goes wrong with the bit below, as fsck is not
+	// (always, depends on the disk size?) happy about it. So we use mkfs
+	// instead for now. It would be nice if we could stop depending on
+	// mkfs though.
+	/*
+		theFS, err := theDisk.CreateFilesystem(disk.FilesystemSpec{
+			Partition:   1,
+			FSType:      filesystem.TypeFat32,
+			VolumeLabel: label,
+		})
+		if err != nil {
+			return err
+		}
+		if err := theFS.SetLabel(label); err != nil {
+			return err
+		}
+	*/
+
+	if err := theDisk.Close(); err != nil {
+		log.Printf("while closing the disk: %v", err)
+	}
+
+	p, err := partDevice(device)
 	if err != nil {
 		return err
 	}
-	err = theFS.SetLabel(label)
-	return err
+
+	time.Sleep(time.Second)
+
+	// recreating with mkfs anyway, because something is going wrong with the above.
+	// Also, we're not using busybox's mkfs because its -n option produces a broken label,
+	// see https://github.com/dosfstools/dosfstools/issues/172
+	if err = mkfs(p, label); err != nil {
+		return fmt.Errorf("while trying to mkfs %v: %v", part, err)
+	}
+
+	return nil
 }
