@@ -24,6 +24,7 @@ package main
 import (
 	"flag"
 	"log"
+	"os"
 
 	//	"github.com/davecgh/go-spew/spew"
 	"github.com/google/nftables"
@@ -38,6 +39,7 @@ var (
 
 func init() {
 	flag.StringVar(&flagLan, "lan", "eth0", "interface on the subnet side")
+	// TODO: change the default to cell interface name (wwan0 probably)
 	flag.StringVar(&flagWan, "wan", "wlan0", "interface on the internet side")
 }
 
@@ -53,6 +55,10 @@ func main() {
 		log.Fatal("empty wan interface")
 	}
 
+	if err := enableForwarding(); err != nil {
+		log.Fatalf("while enabling forwarding: %v", err)
+	}
+
 	conn, err := nftables.New()
 	if err != nil {
 		log.Fatal(err)
@@ -64,6 +70,16 @@ func main() {
 	if err := conn.Flush(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func enableForwarding() error {
+	if err := os.WriteFile("/proc/sys/net/ipv4/ip_forward", []byte("1"), 0644); err != nil {
+		return err
+	}
+	if err := os.WriteFile("/proc/sys/net/ipv4/conf/all/forwarding", []byte("1"), 0644); err != nil {
+		return err
+	}
+	return nil
 }
 
 func showRules(conn *nftables.Conn) {

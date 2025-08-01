@@ -123,7 +123,8 @@
 		"tailscale.com/cmd/tailscale": {
 			"CommandLineFlags": [
 				"up",
-				"--auth-key=file:/etc/ts.key"
+				"--auth-key=file:/etc/ts.key",
+				"--advertise-routes=TS_ROUTES"
 			],
 			"ExtraFilePaths": {
 				"/etc/ts.key": "ts.key"
