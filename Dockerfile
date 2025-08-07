@@ -21,6 +21,9 @@ WORKDIR /home/marlin/src/github.com/arribada/marlin-core/dosfstools
 COPY ./dosfstools .
 RUN make fsck.fat
 
+WORKDIR /home/marlin/src/github.com/arribada/marlin-core/usbnet
+COPY ./usbnet .
+
 WORKDIR /home/marlin/src/github.com/arribada/marlin-core/ffprobe
 COPY ./ffprobe .
 RUN make ffprobe

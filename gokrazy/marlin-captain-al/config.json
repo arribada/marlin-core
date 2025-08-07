@@ -19,9 +19,28 @@
 		"github.com/arribada/marlin-core/databrowser/cmd/databrowser",
 		"github.com/arribada/marlin-core/gengps/cmd/gengps",
 		"github.com/arribada/marlin-core/captain/cmd/captain",
-		"github.com/arribada/marlin-core/gateway/cmd/gateway"
+		"github.com/arribada/marlin-core/gateway/cmd/gateway",
+		"github.com/arribada/marlin-core/usbnet/cmd/dhcp2"
 	],
 	"PackageConfig": {
+		"github.com/arribada/marlin-core/gateway/cmd/gateway": {
+			"CommandLineFlags": [
+				"-lan=eth1",
+				"-wan=eth0"
+			]
+		},
+		"github.com/gokrazy/gokrazy/cmd/dhcp": {
+			"CommandLineFlags": [
+				"-extra_route_priority=10",
+				"-interface=eth0"
+			]
+		},
+		"github.com/arribada/marlin-core/usbnet/cmd/dhcp2": {
+			"CommandLineFlags": [
+				"-extra_route_priority=15",
+				"-interface=eth1"
+			]
+		},
 		"github.com/arribada/marlin-core/collector/integration": {
 			"DontStart": true
 		},
@@ -126,7 +145,8 @@
 		"tailscale.com/cmd/tailscale": {
 			"CommandLineFlags": [
 				"up",
-				"--auth-key=file:/etc/ts.key"
+				"--auth-key=file:/etc/ts.key",
+				"--advertise-routes=TS_ROUTES"
 			],
 			"ExtraFilePaths": {
 				"/etc/ts.key": "ts.key"
