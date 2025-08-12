@@ -19,28 +19,11 @@
 		"github.com/arribada/marlin-core/collector/integration",
 		"github.com/arribada/marlin-core/databrowser/cmd/databrowser",
 		"github.com/arribada/marlin-core/gengps/cmd/gengps",
-		"github.com/arribada/marlin-core/captain/cmd/captain",
-		"github.com/arribada/marlin-core/gateway/cmd/gateway",
-		"github.com/arribada/marlin-core/usbnet/cmd/dhcp2"
+		"github.com/arribada/marlin-core/captain/cmd/captain"
 	],
 	"PackageConfig": {
-		"github.com/arribada/marlin-core/gateway/cmd/gateway": {
-			"CommandLineFlags": [
-				"-lan=eth1",
-				"-wan=eth0"
-			]
-		},
 		"github.com/gokrazy/gokrazy/cmd/dhcp": {
-			"CommandLineFlags": [
-				"-extra_route_priority=10",
-				"-interface=eth0"
-			]
-		},
-		"github.com/arribada/marlin-core/usbnet/cmd/dhcp2": {
-			"CommandLineFlags": [
-				"-extra_route_priority=15",
-				"-interface=eth1"
-			]
+			"DontStart": true
 		},
 		"github.com/arribada/marlin-core/collector/integration": {
 			"DontStart": true
@@ -70,9 +53,12 @@
 			"Environment": [
 				"VIDEO_DEVICE=VIDEO_DEVICE_VAL",
 				"AZURE_CONN=AZURE_CONN_VAL",
-				"AZURE_SHARE=AZURE_SHARE_VAL"
+				"AZURE_SHARE=AZURE_SHARE_VAL",
+				"AUTH_USERPASS=AUTH_USERPASS_VAL"
 			],
 			"CommandLineFlags": [
+				"-host=:7140",
+				"-captain=localhost:7143",
 				"-video=false",
 				"-gps_device=/tmp/gps"
 			]
@@ -95,7 +81,7 @@
 			],
 			"CommandLineFlags": [
 				"-source=TRANSCRIBE_SOURCE",
-				"-captain=localhost:7403",
+				"-captain=localhost:7143",
 				"-host=:8361",
 				"-modelpath=/perm/transcribe/models/ggml-base.en.bin",
 				"-v=true",

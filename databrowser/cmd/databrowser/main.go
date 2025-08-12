@@ -48,12 +48,20 @@ func initStuff() {
 		}
 	}
 
+	if flagUserPass == "" {
+		flagUserPass = os.Getenv("AUTH_USERPASS")
+	}
+	// we check it here, because NewUserPass silently allows for an empty one.
+	// Better safe than sorry.
+	if flagUserPass == "" {
+		log.Fatalf("userpass not provided")
+	}
+
 	if err := utils.WaitForDrive(flagCaptain); err != nil {
 		log.Fatal(err)
 	}
 
 	var err error
-	// TODO: rethink whether that's safe enough (i.e. do we want to allow no userpass?)
 	up, err = basicauth.NewUserPass(flagUserPass)
 	if err != nil {
 		log.Fatal(err)

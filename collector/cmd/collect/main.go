@@ -160,6 +160,7 @@ func getReport(reportURL string) {
 	if reportURL == "" {
 		return
 	}
+	// NewUserPass automatically checks for AUTH_USERPASS
 	up, err := basicauth.NewUserPass("")
 	if err != nil {
 		log.Println(err.Error())

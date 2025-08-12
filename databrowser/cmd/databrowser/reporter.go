@@ -26,10 +26,14 @@ func getPreviousFishingDay(dataDir string) (string, error) {
 	// since they're already sortedy by name, and the one we want is close to the end, let's go backwards
 	for i := len(dir) - 1; i > -1; i-- {
 		name := dir[i].Name()
+		if !dir[i].IsDir() {
+			continue
+		}
+		// might be on disk historically because i360/CEFAS
 		if name == "sensordata" {
 			continue
 		}
-		if !dir[i].IsDir() {
+		if name == ".tmp" {
 			continue
 		}
 		day, err := time.Parse(time.DateOnly, name)
