@@ -62,9 +62,6 @@ type EventsWatcher struct {
 	config  Config
 	watcher *fsnotify.Watcher
 
-	// disabled if nil.
-	gps *gps.GPSEvents
-
 	// should be safe if nil.
 	// We can use the same uploader instance for routine uploads in the loop,
 	// and for on the fly uploads at file creation time, because the routine uploads
@@ -118,15 +115,6 @@ func New(lgr klog.Logger, cfg Config, theChans *types.Chans) (*EventsWatcher, er
 
 	du := NewDuWatcher(cfg)
 	ew.du = du
-
-	// TODO: this check does not work, see TODO in Config type.
-	if cfg.GPS != nil {
-		g, err := gps.NewGPSEvents(lgr, *cfg.GPS)
-		if err != nil {
-			return nil, err
-		}
-		ew.gps = g
-	}
 
 	ew.chans = theChans
 	if cfg.VideoAlwaysOn {
@@ -388,15 +376,6 @@ func (ew *EventsWatcher) handleEvent(event fsnotify.Event) {
 	if isGPS(name) {
 		_ = level.Debug(ew.klogger).Log("msg", fmt.Sprintf("New gps file detected: %s", name))
 		go func() {
-			// TODO: we rely on internal mutex so far. probably good enough, but if there's
-			// too much work (goroutine creation above piling up), maybe pile work on with a
-			// chan instead.
-			_, err := ew.gps.AddEventsFile(fullPath)
-			if err != nil {
-				logger.LogAndSend(err.Error())
-				// TODO: maybe don't skip archiving though? or not always?
-				return
-			}
 			if _, err := ew.archiveFile(datatype.GPS, fullPath); err != nil {
 				if err == dupArchiving {
 					return

@@ -14,7 +14,6 @@ import (
 	"github.com/arribada/marlin-core/collector/pkg/logger"
 	"github.com/arribada/marlin-core/collector/pkg/node/gpsr"
 	"github.com/arribada/marlin-core/collector/pkg/types"
-	"github.com/arribada/marlin-core/common/pkg/datatype"
 
 	klog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -113,204 +112,42 @@ type GPSEvents struct {
 	lastActivity *types.FishingActivity
 }
 
-// TODO: change signature. directly returning indices and speed for now to
-// facilitate experimenting.
-func (g *GPSEvents) AddEventsFile(filename string) ([]float64, error) {
-	idx, _, _, err := g.AddEventsFileOpts(filename, false, false)
-	return idx, err
-}
-
-// TODO: remove
-// old for backwards incompatible file format change from 1a31d90599.
-func (g *GPSEvents) AddEventsFileOpts(filename string, old bool, forTests bool) ([]float64, []float64, []time.Time, error) {
+func (g *GPSEvents) AddEventsFile(filename string) ([]float64, []time.Time, error) {
 	if g == nil {
-		return nil, nil, nil, nil
+		return nil, nil, nil
 	}
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
 	f, err := os.Open(filename)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	defer f.Close()
 	dec := json.NewDecoder(f)
 
-	if old {
-		var rmc []gpsr.SRMC
-		if err := dec.Decode(&rmc); err != nil {
-			return nil, nil, nil, err
-		}
-		return addEvents(g, rmc, forTests)
-	}
 	var rmc []gpsr.SRMCplus
 	if err := dec.Decode(&rmc); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	return addEvents(g, rmc, forTests)
+	return addEvents(g, rmc)
 }
 
-func addEvents[obj gpsr.SRMCer](g *GPSEvents, objs []obj, forTests bool) ([]float64, []float64, []time.Time, error) {
-	var fishingIndices []float64
+func addEvents[obj gpsr.SRMCer](g *GPSEvents, objs []obj) ([]float64, []time.Time, error) {
 	var speed []float64
 	var tees []time.Time
 	for _, v := range objs {
 		rmc := v.Inner()
-		if forTests {
-			speed = append(speed, rmc.Speed)
+		speed = append(speed, rmc.Speed)
+		t, err := rmc.ToGoTime()
+		if err != nil {
+			return nil, nil, err
 		}
-		t, err := g.handleEvent(rmc)
-		if forTests {
-			tees = append(tees, t)
-		}
+		tees = append(tees, t)
 		if err != nil {
 			_ = level.Error(g.klogger).Log("err", fmt.Sprintf("while handling a GPS event: %v", err))
-			fishingIndices = append(fishingIndices, InvalidFishingIndex)
 			continue
 		}
-		fishingIndices = append(fishingIndices, g.fishingIndex)
 	}
-	return fishingIndices, speed, tees, nil
-}
-
-func (g *GPSEvents) handleEvent(rmc gpsr.SRMC) (time.Time, error) {
-	now, err := rmc.ToGoTime()
-	if err != nil {
-		return time.Time{}, err
-	}
-	defer func() {
-		// TODO: only do it if no error at all?
-		g.lastTime = now
-		g.lastSpeed = rmc.Speed
-	}()
-	if rmc.Speed > g.cfg.MovingThreshold {
-		g.hasStarted = true
-	}
-	if g.isStopped(rmc.Speed) {
-		if g.hasStarted {
-			g.fishingIndex = maxLikelihood
-			g.lastStop = now
-		} else {
-			// we actually have never been on the move yet, so can't really count that stop
-			// as fishing for now.
-			g.fishingIndex = minLikelihood
-		}
-
-		if err := g.assessActivity(now, rmc.Speed); err != nil {
-			return time.Time{}, fmt.Errorf("while assessing fishing activity: %v", err)
-		}
-
-		return now, nil
-	}
-
-	g.updateFromDeceleration(now, rmc.Speed)
-
-	g.updateFromLastActivity(now)
-
-	if err := g.assessActivity(now, rmc.Speed); err != nil {
-		return time.Time{}, fmt.Errorf("while assessing fishing activity: %v", err)
-	}
-
-	return now, nil
-}
-
-func (g *GPSEvents) isStopped(currentSpeed float64) bool {
-	return currentSpeed < g.cfg.MovingThreshold
-}
-
-func (g *GPSEvents) updateFromLastActivity(now time.Time) {
-	if g.lastStop.IsZero() {
-		g.fishingIndex = minLikelihood
-		return
-	}
-
-	sinceLastStop := now.Sub(g.lastStop)
-	sinceInSeconds := float64(sinceLastStop) / float64(time.Second)
-	decrease := sinceInSeconds * g.relaxationRate
-
-	g.fishingIndex -= decrease
-	if g.fishingIndex <= 0 {
-		g.fishingIndex = minLikelihood
-	}
-}
-
-func (g *GPSEvents) updateFromDeceleration(now time.Time, speed float64) {
-	if g.lastStop.IsZero() {
-		g.fishingIndex = minLikelihood
-		return
-	}
-
-	if g.lastTime.IsZero() {
-		// no previous event recorded, cannot conclude anything
-		return
-	}
-	deltaT := now.Sub(g.lastTime)
-	if deltaT > time.Duration(g.cfg.MinGranularity)*time.Second {
-		// unrelated measurements, cannot contribute anything
-		return
-	}
-	deltaV := speed - g.lastSpeed
-	if deltaV > 0 {
-		// we're accelerating, cannot contribute anything
-		return
-	}
-	decel := -deltaV / float64(deltaT/time.Second)
-	g.fishingIndex = decel * g.cfg.DecelerationFactor
-	if g.fishingIndex > maxLikelihood {
-		g.fishingIndex = maxLikelihood
-	}
-}
-
-func (g *GPSEvents) assessActivity(now time.Time, speed float64) error {
-	if g.lastActivityStart.IsZero() {
-		// we were not fishing so far
-		if g.fishingIndex >= g.cfg.FishingActivityThreshold {
-			_ = level.Debug(g.klogger).Log("msg", fmt.Sprintf("new fishing activity at %v", now.String()))
-			// but we are now fishing
-			g.lastActivityStart = now
-			g.speedAtStart = speed
-			g.indexAtStart = g.fishingIndex
-			return nil
-		}
-		// we are still not fishing
-		return nil
-	}
-
-	// we were fishing so far
-	if g.fishingIndex >= g.cfg.FishingActivityThreshold {
-		// and we are still fishing
-		return nil
-	}
-
-	// we have stopped fishing.
-	// backup values.
-	start := g.lastActivityStart
-	startSpeed := g.speedAtStart
-	startIndex := g.indexAtStart
-
-	// reset to zero value, as sentinel for next run.
-	g.lastActivityStart = time.Time{}
-	g.speedAtStart = -1
-	g.indexAtStart = -1
-
-	event := types.Event{
-		FishingActivity: &types.FishingActivity{
-			TimeStart:  start,
-			TimeEnd:    now,
-			SpeedStart: startSpeed,
-			SpeedEnd:   speed,
-			IndexStart: startIndex,
-			IndexEnd:   g.fishingIndex,
-		},
-	}
-	g.lastActivity = event.FishingActivity
-
-	// TODO: maybe move the actual writing out of here, and make assessActivity
-	// return the activity. API still in flux anyway.
-	_ = level.Debug(g.klogger).Log("msg", fmt.Sprintf("end of fishing activity at %v", now.String()))
-	if err := datatype.WriteEventFile(g.cfg.DataDir, event, datatype.FishingEvent); err != nil {
-		return fmt.Errorf("while writing fishing activity event: %v", err)
-	}
-
-	return nil
+	return speed, tees, nil
 }
