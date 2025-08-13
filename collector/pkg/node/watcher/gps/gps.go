@@ -120,6 +120,7 @@ func (g *GPSEvents) AddEventsFile(filename string) ([]float64, error) {
 	return idx, err
 }
 
+// TODO: remove
 // old for backwards incompatible file format change from 1a31d90599.
 func (g *GPSEvents) AddEventsFileOpts(filename string, old bool, forTests bool) ([]float64, []float64, []time.Time, error) {
 	if g == nil {

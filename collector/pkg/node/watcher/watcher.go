@@ -80,9 +80,6 @@ type EventsWatcher struct {
 	muVideoRec       sync.RWMutex
 	isVideoRecording bool
 
-	muBP sync.RWMutex
-	bp   []*types.ButtonPress
-
 	muEvSeen sync.RWMutex
 	evSeen   map[string]bool
 }
@@ -173,9 +170,6 @@ func (ew *EventsWatcher) trackButtonPresses() {
 				logger.LogAndSend(fmt.Sprintf("while writing button press event: %v", err))
 				return
 			}
-			ew.muBP.Lock()
-			defer ew.muBP.Unlock()
-			ew.bp = append(ew.bp, event.ButtonPress)
 		}()
 	}
 }
@@ -403,9 +397,6 @@ func (ew *EventsWatcher) handleEvent(event fsnotify.Event) {
 				// TODO: maybe don't skip archiving though? or not always?
 				return
 			}
-			ew.muBP.Lock()
-			ew.bp = nil
-			ew.muBP.Unlock()
 			if _, err := ew.archiveFile(datatype.GPS, fullPath); err != nil {
 				if err == dupArchiving {
 					return
@@ -451,6 +442,7 @@ func (sw *EventsWatcher) archiveFile(dataType int, fullPath string) (string, err
 	_, ok := sw.evSeen[fullPath]
 	sw.muEvSeen.RUnlock()
 	if ok {
+		// TODO: log only if it's not a fishing file?
 		logger.LogAndSend(fmt.Sprintf("duplicate archiving detected for %v", fullPath))
 		return "", dupArchiving
 	}
