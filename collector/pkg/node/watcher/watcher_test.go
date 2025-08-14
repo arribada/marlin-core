@@ -32,8 +32,7 @@ func TestArchiveFile(t *testing.T) {
 	}
 
 	ew := &EventsWatcher{
-		up:     &uploader{},
-		evSeen: make(map[string]bool),
+		up: &uploader{},
 	}
 	newName, err := ew.archiveFile(dataType, fp)
 	if err != nil {

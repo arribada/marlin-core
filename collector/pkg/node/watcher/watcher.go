@@ -75,8 +75,10 @@ type EventsWatcher struct {
 	muVideoRec       sync.RWMutex
 	isVideoRecording bool
 
-	muEvSeen sync.RWMutex
-	evSeen   map[string]bool
+	// To enforce at least 1s (artificial) interval between each button press,
+	// to avoid name conflicts.
+	lastButtonPressMu sync.Mutex
+	lastButtonPress   time.Time
 }
 
 func New(lgr klog.Logger, cfg Config, theChans *types.Chans) (*EventsWatcher, error) {
@@ -109,7 +111,6 @@ func New(lgr klog.Logger, cfg Config, theChans *types.Chans) (*EventsWatcher, er
 		return nil, err
 	}
 	ew.up = up
-	ew.evSeen = make(map[string]bool)
 
 	du := NewDuWatcher(cfg)
 	ew.du = du
@@ -143,9 +144,24 @@ func (ew *EventsWatcher) videoRecState() bool {
 }
 
 func (ew *EventsWatcher) trackButtonPresses() {
+	ew.lastButtonPress = time.Now()
 	for {
 		bp := <-ew.chans.ButtonPress
+		// we still want to be responsive for our controller http handler,
+		// so we make it all concurrent, to accept button presses as fast
+		// as possible.
 		go func() {
+			// But to avoid file name conflicts, we enforce that each button press
+			// is on their own time (at the second granularity), even if the button
+			// was pressed more than once within a second.
+			ew.lastButtonPressMu.Lock()
+			defer ew.lastButtonPressMu.Unlock()
+			for {
+				if time.Now().Sub(ew.lastButtonPress) > time.Second {
+					break
+				}
+				time.Sleep(200 * time.Millisecond)
+			}
 			event := types.Event{
 				ButtonPress: &types.ButtonPress{
 					Time:  time.Now(),
@@ -154,8 +170,8 @@ func (ew *EventsWatcher) trackButtonPresses() {
 			}
 			if err := datatype.WriteEventFile(ew.config.DataDir, event, datatype.ButtonPress); err != nil {
 				logger.LogAndSend(fmt.Sprintf("while writing button press event: %v", err))
-				return
 			}
+			ew.lastButtonPress = time.Now()
 		}()
 	}
 }
@@ -311,9 +327,6 @@ func (ew *EventsWatcher) handleEvent(event fsnotify.Event) {
 		logger.LogAndSend(fmt.Sprintf("New speech file detected: %s", name))
 		go func() {
 			if _, err := ew.archiveFile(datatype.Speech, fullPath); err != nil {
-				if err == dupArchiving {
-					return
-				}
 				logger.LogAndSend(fmt.Sprintf("error while archiving file %s: %v", fullPath, err))
 				return
 			}
@@ -325,9 +338,6 @@ func (ew *EventsWatcher) handleEvent(event fsnotify.Event) {
 		logger.LogAndSend(fmt.Sprintf("New audio file detected: %s", name))
 		go func() {
 			if _, err := ew.archiveFile(datatype.Audio, fullPath); err != nil {
-				if err == dupArchiving {
-					return
-				}
 				logger.LogAndSend(fmt.Sprintf("error while archiving file %s: %v", fullPath, err))
 				return
 			}
@@ -340,9 +350,6 @@ func (ew *EventsWatcher) handleEvent(event fsnotify.Event) {
 		go func() {
 			newFullPath, err := ew.archiveFile(datatype.Video, fullPath)
 			if err != nil {
-				if err == dupArchiving {
-					return
-				}
 				logger.LogAndSend(fmt.Sprintf("error while archiving file %s: %v", fullPath, err), true)
 				if newFullPath == "" {
 					return
@@ -357,27 +364,10 @@ func (ew *EventsWatcher) handleEvent(event fsnotify.Event) {
 		return
 	}
 
-	if isFishingEvent(name) {
-		logger.LogAndSend(fmt.Sprintf("New fishing event file detected: %s", name))
-		go func() {
-			if _, err := ew.archiveFile(datatype.FishingEvent, fullPath); err != nil {
-				if err == dupArchiving {
-					return
-				}
-				logger.LogAndSend(fmt.Sprintf("error while archiving file %s: %v", fullPath, err))
-				return
-			}
-		}()
-		return
-	}
-
 	if isGPS(name) {
 		_ = level.Debug(ew.klogger).Log("msg", fmt.Sprintf("New gps file detected: %s", name))
 		go func() {
 			if _, err := ew.archiveFile(datatype.GPS, fullPath); err != nil {
-				if err == dupArchiving {
-					return
-				}
 				logger.LogAndSend(fmt.Sprintf("error while archiving file %s: %v", fullPath, err))
 				return
 			}
@@ -389,9 +379,6 @@ func (ew *EventsWatcher) handleEvent(event fsnotify.Event) {
 		logger.LogAndSend(fmt.Sprintf("New button press event file detected: %s", name))
 		go func() {
 			if _, err := ew.archiveFile(datatype.ButtonPress, fullPath); err != nil {
-				if err == dupArchiving {
-					return
-				}
 				logger.LogAndSend(fmt.Sprintf("error while archiving file %s: %v", fullPath, err))
 				return
 			}
@@ -408,37 +395,7 @@ func (sw *EventsWatcher) Stop(cancel context.CancelFunc) {
 	sw.watcher.Close()
 }
 
-var dupArchiving = errors.New("duplicate archiving")
-
 func (sw *EventsWatcher) archiveFile(dataType int, fullPath string) (string, error) {
-	// TODO: we should do that up in the caller, as we're doing other
-	// things before/after archiveFile for some kinds of data. But good
-	// enough to debug/see the race for now.
-	// Also, maybe one lock per kind of dataType?
-	sw.muEvSeen.RLock()
-	_, ok := sw.evSeen[fullPath]
-	sw.muEvSeen.RUnlock()
-	if ok {
-		// TODO: log only if it's not a fishing file?
-		logger.LogAndSend(fmt.Sprintf("duplicate archiving detected for %v", fullPath))
-		return "", dupArchiving
-	}
-
-	sw.muEvSeen.Lock()
-	_, ok = sw.evSeen[fullPath]
-	if ok {
-		sw.muEvSeen.Unlock()
-		logger.LogAndSend(fmt.Sprintf("duplicate archiving detected for %v", fullPath))
-		return "", dupArchiving
-	}
-	sw.evSeen[fullPath] = true
-	sw.muEvSeen.Unlock()
-	defer func() {
-		sw.muEvSeen.Lock()
-		delete(sw.evSeen, fullPath)
-		sw.muEvSeen.Unlock()
-	}()
-
 	rootDir, name := filepath.Split(fullPath)
 
 	ft, err := datatype.FileTime(dataType, name)
