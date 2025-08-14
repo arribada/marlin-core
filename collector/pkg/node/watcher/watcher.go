@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/arribada/marlin-core/collector/pkg/logger"
-	"github.com/arribada/marlin-core/collector/pkg/node/watcher/gps"
 	"github.com/arribada/marlin-core/collector/pkg/types"
 	"github.com/arribada/marlin-core/common/pkg/datatype"
 	"github.com/arribada/marlin-core/common/pkg/utils"
@@ -38,7 +37,6 @@ type Config struct {
 	Enabled bool
 	DataDir string
 	Verbose bool
-	GPS     *gps.Config `json:",omitempty"`
 
 	AzureConn  string
 	AzureShare string

@@ -12,7 +12,6 @@ import (
 	"github.com/arribada/marlin-core/collector/pkg/node/gpsr"
 	"github.com/arribada/marlin-core/collector/pkg/node/videor/rtsp"
 	"github.com/arribada/marlin-core/collector/pkg/node/watcher"
-	"github.com/arribada/marlin-core/collector/pkg/node/watcher/gps"
 )
 
 var (
@@ -132,10 +131,6 @@ func parseWatcher() (*watcher.Config, error) {
 		DuInterval:     3600,
 		DuThreshold:    0.9,
 	}
-	// TODO: make gps watcher optional? meh.
-	cfg := gps.DefaultConfig
-	cfg.DataDir = flagDataDir
-	w.GPS = &cfg
 	return w, nil
 }
 
