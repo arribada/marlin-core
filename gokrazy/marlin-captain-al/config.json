@@ -75,7 +75,7 @@
 			"CommandLineFlags": [
 				"-host=:7140",
 				"-captain=localhost:7143",
-				"-video=false",
+				"-video=true",
 				"-gps_device=/tmp/gps"
 			]
 		},
