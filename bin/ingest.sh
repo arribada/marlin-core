@@ -6,6 +6,7 @@ if [[ $# -eq 0 ]]; then
 	exit 1
 fi
 
+# GUS_SERVER=http://100.108.73.80:8655
 GUS_SERVER=http://100.120.76.35:8655
 SBOM=$(unzip -p ./$1.gaf sbom.json | jq -r '.sbom_hash')
 echo $SBOM
