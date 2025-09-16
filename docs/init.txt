@@ -1,16 +1,76 @@
+		# First, install Go and Gokrazy:
+		https://go.dev/dl/
+		https://go.dev/doc/install
+		https://gokrazy.org/quickstart/
+
+		# Reminder: after installing Go and Gokrazy (so, essentially the "go" and "gok" binaries):
+		# You need to make sure that the directory where the "go" executable lives, is in your PATH env.
+		# Similarly, you need to make sure that the directory where the "gok" executable lives, is in your PATH env.
+		# Also if for some reason (it shouldn't be the case, but we've seen
+		# it happen) sudo is required in your case, then running the "gok"
+		# command becomes:
+		# sudo env "PATH=$PATH" gok
+
+		# First we create a new instance, that we're not going to use. We
+		# just do that because we'll need a machine id in our config file,
+		# and we're lazy, and instance creation is going to have the side
+		# effect of generating a new machine id for us.
+		# This should create a new config file at ~/gokrazy/formachineid/config.json
+		# But first, if there already is a ~/gokrazy/formachineid, we remove it:
+		rm -rf ~/gokrazy/formachineid
 		gok -i formachineid new
-		cp ./gokrazy/provision/config.json ~/gokrazy/hello/
-		inject machineid into ~/gokrazy/hello/config.json
-		# TODO: commit a fixed provision/config.json with wired enabled
-		# enable wired dhcp again.
-		# TODO: also quid of advertize routes for TS?
-		cp gokrazy/secrets/ts.key gokrazy/secrets/wifi.json ~/gokrazy/hello/
-		# need breakglass file as well
-		sudo ./rpiboot -v -d mass-storage-gadget64
-		diskutil list # to find eMMC showing up as removable storage now
-		CGO_ENABLED=1 gok --parent_dir ~/gokrazy -i hello overwrite --full /dev/disk5
-		# on ubuntu CGO_ENABLED=1 sudo env "PATH=$PATH" gok...
+
+		# Then we create the directory for the default instance we're going
+		# to use. That is the location where gokrazy will look for an instance
+		# configuration by default.
+		mv ~/gokrazy/hello ~/gokrazy/hello.old
+		mkdir ~/gokrazy/hello
+		# and we move into that directory
+		cd ~/gokrazy/hello/
+
+		# Then we fetch a basic configuration file, with no specific
+		# application on it, just the bare minimum to get a system running
+		# and online.
+		<your HTTP client of choice here> https://raw.githubusercontent.com/arribada/marlin-core/refs/heads/main/gokrazy/provision/config.json
+		# We should now have a config file at ~/gokrazy/hello/config.json
+
+		# TODO(mathieu): make a script to do that
+		# We now want to find the machine-id that was generated in
+		# ~/gokrazy/formachineid/config.json , and inject it into our current
+		# configuration file ~/gokrazy/hello/config.json.
+		# So we look for a section like this:
+		# "github.com/gokrazy/gokrazy/cmd/randomd": {
+		# 	"ExtraFileContents": {
+		#		"/etc/machine-id": "7d8b0eb4cc3a4e21b89f6ff0ec7e9657\n"
+		#	}
+		# },
+		# And we copy the value for /et/machine-id found in
+		# ~/gokrazy/formachineid/config.json, and we paste it as the new value
+		# in ~/gokrazy/hello/config.json
+
+		# Then at the top of the file, we setup the Hostname to what we'll want it to be. It will also eventually be the hostname on Tailscale.
+		# So we find "Hostname": "marlin-augnat3",
+		# And replace marlin-augnat3 with whatever value we want.
+		# For you Al, this time we want marlin-captain-al2 , to be consistent with the core naming.
+
+		# TODO: make sure we have ~/gokrazy/secrets/ts.key
+		# How to transmit it securely? who do we trust with it?
+		cp ~/somewhere/ts.key ts.key
+
+		# Then you need to find the block device corresponding to your sd card.
+		# on darwin: with "diskutil list", we would find it as e.g. /dev/disk5
+		# on linux, it will be something something like /dev/sdc (and not /dev/sdc1 ;P)
+
+		# If writing to eMMC instead of on SDcard:
+		sudo rpiboot -v -d mass-storage-gadget64
+		# to find eMMC showing up as removable storage now
+		diskutil list
+
+		# Then finally
+		gok --parent_dir ~/gokrazy -i hello overwrite --full /dev/sdc
+
 		**********
+		# Next steps after initial provisioning
 		cd gokrazy
 		cp -r marlin-augnat1 marlin-augnatN
 		edit marlin-augnatN/config.json
@@ -20,7 +80,3 @@
 		go run ./make.go -vessel marlin-augnatN
 		ssh marlin-augnatN && echo 127.0.0.1:514 | tee /perm/remote_syslog/target
 		**********
-	- in mikrotik:
-		- IP -> DHCP-server -> Networks. On the existing one:
-		- set gateway to 192.168.88.25? (our core)
-		- set DNS server to google ones		

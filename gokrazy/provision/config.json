@@ -9,9 +9,6 @@
 	],
 	"Packages": [
 		"github.com/gokrazy/serial-busybox",
-		"github.com/gokrazy/breakglass",
-		"github.com/gokrazy/wifi",
-		"github.com/mpl/simpleHttpd",
 		"tailscale.com/cmd/tailscaled",
 		"tailscale.com/cmd/tailscale",
 		"github.com/gokrazy/mkfs",
@@ -20,23 +17,12 @@
 	"PackageConfig": {
 		"github.com/gokrazy/gokrazy/cmd/randomd": {
 			"ExtraFileContents": {
-				"/etc/machine-id": "7d8b0eb4cc3a4e21b89f6ff0ec7e9657\n"
+				"/etc/machine-id": "INSERT NEW ID HERE\n"
 			}
-		},
-		"github.com/gokrazy/breakglass": {
-			"CommandLineFlags": [
-				"-authorized_keys=/etc/breakglass.authorized_keys"
-			],
-			"ExtraFilePaths": {
-				"/etc/breakglass.authorized_keys": "breakglass.authorized_keys"
-			}
-		},
-		"github.com/gokrazy/gokrazy/cmd/dhcp": {
-			"DontStart": true
 		},
 		"github.com/gokrazy/gokrazy/cmd/heartbeat": {
 			"CommandLineFlags": [
-				"--gus_server=http://100.108.73.80:8655"
+				"--gus_server=http://100.120.76.35:8655"
 			]
 		},
 		"github.com/gokrazy/gokrazy/cmd/ntp": {
@@ -49,21 +35,8 @@
 		},
 		"github.com/gokrazy/selfupdate": {
 			"CommandLineFlags": [
-				"--gus_server=http://100.108.73.80:8655",
+				"--gus_server=http://100.120.76.35:8655",
 				"--check_frequency=30s"
-			]
-		},
-		"github.com/gokrazy/wifi": {
-			"ExtraFilePaths": {
-				"/etc/wifi.json": "wifi.json"
-			}
-		},
-		"github.com/mpl/cgodemo/debug/cmd/myntp": {
-			"CommandLineFlags": [
-				"0.pool.ntp.org",
-				"1.pool.ntp.org",
-				"2.pool.ntp.org",
-				"3.pool.ntp.org"
 			]
 		},
 		"tailscale.com/cmd/tailscale": {
