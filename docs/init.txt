@@ -31,7 +31,8 @@
 		# Then we fetch a basic configuration file, with no specific
 		# application on it, just the bare minimum to get a system running
 		# and online.
-		<your HTTP client of choice here> https://raw.githubusercontent.com/arribada/marlin-core/refs/heads/main/gokrazy/provision/config.json
+		# Download https://github.com/arribada/marlin-core/blob/main/gokrazy/provision/config.json
+		# and save it in the current location.
 		# We should now have a config file at ~/gokrazy/hello/config.json
 
 		# TODO(mathieu): make a script to do that
