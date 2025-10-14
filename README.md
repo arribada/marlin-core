@@ -27,3 +27,7 @@ The very last step of an update (calling ```./bin/ingest```), is done out of doc
 Get/build it from ```https://github.com/gokrazy/gus```, then run it on a machine within your tailscale network.
 See ```./bin/gus_launcher.sh``` as an example.
 
+# initial provisioning
+
+See https://github.com/arribada/marlin-core/blob/main/docs/init.txt
+
