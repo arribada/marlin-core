@@ -163,30 +163,30 @@ func getReport(reportURL string) {
 	// NewUserPass automatically checks for AUTH_USERPASS
 	up, err := basicauth.NewUserPass("")
 	if err != nil {
-		log.Println(err.Error())
+		log.Println("getReport: ", err.Error())
 		return
 	}
 
 	time.Sleep(30 * time.Second)
 	req, err := http.NewRequest("GET", reportURL, nil)
 	if err != nil {
-		log.Println(err.Error())
+		log.Println("getReport: ", err.Error())
 		return
 	}
 	req.SetBasicAuth(up.U, up.P)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Println(err.Error())
+		log.Println("getReport: ", err.Error())
 		return
 	}
 	defer resp.Body.Close()
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Println(err.Error())
+		log.Println("getReport: ", err.Error())
 		return
 	}
 	// TODO: make it all in one line for goog cloud?
-	log.Println(string(data))
+	log.Println("Status report:\n", string(data))
 }
 
 func ExitOnErr(err error, msg string) {

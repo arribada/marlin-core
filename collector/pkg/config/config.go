@@ -58,7 +58,7 @@ func init() {
 	flag.BoolVar(&flagWatcherEnabled, "watcher", true, "enable data watcher")
 	flag.StringVar(&flagAzureConn, "azure_conn", "", "Azure connection string. No uploading if empty.")
 	flag.StringVar(&flagAzureShare, "azure_share", "boatymcboatface", "Azure destination share. No uploading if empty.")
-	flag.IntVar(&flagUploadInterval, "upload_interval", 3600, "Interval in seconds between full upload runs.")
+	flag.IntVar(&flagUploadInterval, "upload_interval", 300, "Interval in seconds between full upload runs.")
 	// TODO: du interval
 
 	flag.BoolVar(&flagControllerEnabled, "controller", true, "enable controller handler")

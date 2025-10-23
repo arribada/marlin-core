@@ -299,6 +299,9 @@ func (g *GPSr) finalize(oldErr error) error {
 		return utils.MaybeWrap(rnErr, oldErr, fmt.Sprintf("while renaming file %v", name))
 	}
 	_ = level.Info(g.klogger).Log("msg", "recording saved", "path", newName)
+	if g.config.Verbose {
+		log.Println("GPS recording saved:", newName)
+	}
 
 	return oldErr
 }

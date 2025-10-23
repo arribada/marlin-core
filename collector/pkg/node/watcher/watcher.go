@@ -21,9 +21,9 @@ import (
 	"github.com/arribada/marlin-core/collector/pkg/logger"
 	"github.com/arribada/marlin-core/collector/pkg/types"
 	"github.com/arribada/marlin-core/common/pkg/datatype"
-	"github.com/arribada/marlin-core/common/pkg/utils"
 	"golang.org/x/sys/unix"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/directory"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/fileerror"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share"
 	"github.com/fsnotify/fsnotify"
@@ -271,10 +271,6 @@ func isButtonPress(name string) bool {
 	return strings.HasPrefix(name, datatype.PrefixesByType[datatype.ButtonPress]+"-") && strings.HasSuffix(name, "."+datatype.ExtByType[datatype.ButtonPress])
 }
 
-func isSensorData(name string) bool {
-	return strings.HasPrefix(name, datatype.PrefixesByType[datatype.SensorData]+"-") && strings.HasSuffix(name, "."+datatype.ExtByType[datatype.SensorData])
-}
-
 func (sw *EventsWatcher) Run(ctx context.Context) error {
 	go sw.up.loop(ctx)
 	go sw.du.loop(ctx)
@@ -422,22 +418,10 @@ func (sw *EventsWatcher) archiveFile(dataType int, fullPath string) (string, err
 		return "", err
 	}
 
-	if err := sw.up.syncToAzure(newFullPath); err != nil {
-		if err == initUploaderErr {
-			// no need to log about it, Azure uploading is just not enabled.
-			// But we still wanna mark for later upload though.
-			if err := markForUpload(newFullPath); err != nil {
-				return newFullPath, fmt.Errorf("while marking file %v for upload: %v", newFullPath, err)
-			}
-			return newFullPath, nil
-		}
-		if mkErr := markForUpload(newFullPath); mkErr != nil {
-			return newFullPath, utils.MaybeWrap(mkErr, err, fmt.Sprintf("while marking file %v for upload", newFullPath))
-		}
-		// uploads are expected to fail when there's no network, so we only log about it
-		logger.LogAndSend(fmt.Sprintf("error while uploading on the fly to Azure: %v", err))
-		return newFullPath, nil
+	if err := markForUpload(newFullPath); err != nil {
+		return newFullPath, fmt.Errorf("while marking file %v for upload: %v", newFullPath, err)
 	}
+
 	return newFullPath, nil
 }
 
@@ -478,7 +462,10 @@ func isUploadMarker(fileName string) bool {
 type uploader struct {
 	azShareCl *share.Client
 	rootDir   string
-	interval  time.Duration
+	// time interval in between full traversals of the data tree for upload
+	interval time.Duration
+	// if specified, skip all days before that one
+	startDay string
 
 	// for telemetry report. reset for each full tree run.
 	filesUploaded int
@@ -496,6 +483,11 @@ func newUploader(cfg Config) (*uploader, error) {
 		return nil, fmt.Errorf("Azure share client init failed: %v", err)
 	}
 
+	if _, err := cl.Create(context.TODO(), nil); err != nil {
+		if !fileerror.HasCode(err, fileerror.ShareAlreadyExists) {
+			return nil, fmt.Errorf("failed to create share %v: %v", cfg.AzureShare, err)
+		}
+	}
 	return &uploader{
 		azShareCl: cl,
 		rootDir:   cfg.DataDir,
@@ -524,12 +516,7 @@ func (up *uploader) loop(ctx context.Context) {
 		// TODO: better report
 		log.Printf("upload run report: %v", run)
 
-		if err := up.uploadRoot(); err != nil {
-			logger.LogAndSend(fmt.Sprintf("while uploading the files at the root: %v", err), true)
-		}
-		if up.filesSeen != 0 {
-			logger.LogAndSend(fmt.Sprintf("Uploader found %d unexpected files at the root", up.filesSeen))
-		}
+		// TODO: re-add something to monitor there's no files at the root?
 
 		if up.interval <= 0 {
 			logger.LogAndSend("Uploading loop disabled by interval, only trying once")
@@ -545,39 +532,152 @@ func (up *uploader) loop(ctx context.Context) {
 	}
 }
 
-func (up *uploader) syncToAzure(fullPath string) error {
+func (up *uploader) uploadAll() error {
 	if up == nil || up.azShareCl == nil {
 		return initUploaderErr
 	}
 
-	// TODO: be smarter about when we actually need to do that. But just an optimization.
-	_, err := up.azShareCl.Create(context.TODO(), nil)
-	if err != nil && !fileerror.HasCode(err, fileerror.ShareAlreadyExists) {
-		return fmt.Errorf("Azure share creation failed: %v", err)
+	var skipBefore time.Time
+	var err error
+	if up.startDay != "" {
+		skipBefore, err = time.Parse(time.DateOnly, up.startDay)
+		if err != nil {
+			return fmt.Errorf("could not parse start day %v as date: %v", up.startDay, err)
+		}
 	}
 
-	parts := strings.Split(fullPath, string(filepath.Separator))
-	lp := len(parts)
-	if lp < 3 {
-		return fmt.Errorf("unexpected path hierarchy, wanted 'someprefix/datetime/datatype/filename', got %s", fullPath)
+	up.filesUploaded = 0
+	up.filesToUpload = 0
+	up.filesSeen = 0
+	isRootDir := true
+	fn := func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		// skip top level dir
+		if isRootDir {
+			isRootDir = false
+			return nil
+		}
+		if !d.IsDir() {
+			return nil
+		}
+
+		name := d.Name()
+		// TODO: remove when new disk
+		if name == "sensordata" {
+			return nil
+		}
+		if name == ".tmp" {
+			return nil
+		}
+
+		t, err := time.Parse(time.DateOnly, name)
+		if err != nil {
+			return fmt.Errorf("could not parse day dir %v as date: %v", name, err)
+		}
+		if !skipBefore.IsZero() {
+			if t.Before(skipBefore) {
+				return nil
+			}
+		}
+
+		skipBefore = t
+		if err := up.uploadDay(up.rootDir, name); err != nil {
+			return err
+		}
+
+		// because uploadDay already drilled down the whole subtree
+		return filepath.SkipDir
 	}
 
-	datetime, datatype, filename := parts[lp-3], parts[lp-2], parts[lp-1]
+	if err := filepath.WalkDir(up.rootDir, fn); err != nil {
+		return err
+	}
+	return nil
+}
 
-	datetimeCl := up.azShareCl.NewDirectoryClient(datetime)
+func (up *uploader) uploadDay(rootDir, dayDir string) error {
+	dayPath := filepath.Join(rootDir, dayDir)
+	ent, err := os.ReadDir(dayPath)
+	if err != nil {
+		return err
+	}
+
+	datetimeCl := up.azShareCl.NewDirectoryClient(dayDir)
 	if _, err := datetimeCl.Create(context.TODO(), nil); err != nil {
 		if !fileerror.HasCode(err, fileerror.ResourceAlreadyExists) {
-			return fmt.Errorf("failed to create datetime directory %v: %v", datetime, err)
+			return fmt.Errorf("failed to create datetime directory %v: %v", dayDir, err)
 		}
 	}
 
-	datatypeCl := datetimeCl.NewSubdirectoryClient(datatype)
+	for _, v := range ent {
+		if !v.IsDir() {
+			continue
+		}
+
+		if err := up.uploadType(datetimeCl, dayPath, v.Name()); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (up *uploader) uploadType(datetimeCl *directory.Client, dayDir, typeDir string) error {
+	if up == nil || up.azShareCl == nil {
+		return initUploaderErr
+	}
+
+	datatypeCl := datetimeCl.NewSubdirectoryClient(typeDir)
 	if _, err := datatypeCl.Create(context.TODO(), nil); err != nil {
 		if !fileerror.HasCode(err, fileerror.ResourceAlreadyExists) {
-			return fmt.Errorf("failed to create datatype directory %v: %v", datatype, err)
+			return fmt.Errorf("failed to create datatype directory %v: %v", typeDir, err)
 		}
 	}
 
+	typePath := filepath.Join(dayDir, typeDir)
+	ent, err := os.ReadDir(typePath)
+	if err != nil {
+		return err
+	}
+	for _, v := range ent {
+		if v.IsDir() {
+			continue
+		}
+		name := v.Name()
+
+		if !isUploadMarker(name) {
+			up.filesSeen++
+			continue
+		}
+
+		fileToUpload := strings.TrimPrefix(strings.TrimSuffix(name, toUploadSuffix), toUploadPrefix)
+		fileToUploadPath := filepath.Join(typePath, fileToUpload)
+		if _, err := os.Stat(fileToUploadPath); err != nil {
+			if !os.IsNotExist(err) {
+				return err
+			}
+			return fmt.Errorf("upload marker file (%s) found, but corresponding file (%s) not found", name, fileToUpload)
+		}
+		up.filesToUpload++
+
+		if err := up.uploadFile(datatypeCl, typePath, fileToUpload); err != nil {
+			return fmt.Errorf("while trying to upload %v: %v", fileToUploadPath, err)
+		}
+		up.filesUploaded++
+
+		markerPath := filepath.Join(typePath, name)
+		if err := os.Remove(markerPath); err != nil {
+			return fmt.Errorf("failed to remove upload marker %v: %v", markerPath, err)
+		}
+	}
+
+	return nil
+}
+
+func (up *uploader) uploadFile(datatypeCl *directory.Client, typeDir, filename string) error {
+	fullPath := filepath.Join(typeDir, filename)
 	f, err := os.OpenFile(fullPath, os.O_RDONLY, 0)
 	if err != nil {
 		return err
@@ -589,6 +689,18 @@ func (up *uploader) syncToAzure(fullPath string) error {
 	}
 	fSize := fInfo.Size()
 
+	// TODO: should we validate more strictly, i.e. by common datatype?
+	if strings.HasSuffix(filename, ".") {
+		// skip hidden files, notably the .DS_Store bs
+		return nil
+	}
+
+	parts := strings.Split(typeDir, "/")
+	nb := len(parts)
+	if nb < 3 {
+		return fmt.Errorf("unexpected number of parts in type dir: %d", len(parts))
+	}
+	dayDir, tpDir := parts[nb-2], parts[nb-1]
 	tempFilename := filename + ".part"
 	fClient := datatypeCl.NewFileClient(tempFilename)
 	if _, err := fClient.Create(context.TODO(), fSize, nil); err != nil {
@@ -599,145 +711,12 @@ func (up *uploader) syncToAzure(fullPath string) error {
 		return fmt.Errorf("failed to upload contents for file %v: %v", tempFilename, err)
 	}
 
-	rnPath := filepath.Join(datetime, datatype, filename)
+	rnPath := filepath.Join(dayDir, tpDir, filename)
 	if _, err := fClient.Rename(context.TODO(), rnPath, nil); err != nil {
 		return fmt.Errorf("failed to rename %v into %v: %v", tempFilename, filename, err)
 	}
 
 	logger.LogAndSend(fmt.Sprintf("Successfully uploaded to Azure: %v", fullPath))
-	return nil
-}
-
-func (up *uploader) uploadAll() error {
-	if up == nil || up.azShareCl == nil {
-		return initUploaderErr
-	}
-
-	var stickyErr error
-	setSticky := func(err error) {
-		if stickyErr != nil {
-			return
-		}
-		stickyErr = err
-	}
-	up.filesUploaded = 0
-	up.filesToUpload = 0
-	up.filesSeen = 0
-	fn := func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-
-		name := d.Name()
-		if !isUploadMarker(name) {
-			up.filesSeen++
-			return nil
-		}
-
-		fileToUpload := strings.TrimPrefix(strings.TrimSuffix(name, toUploadSuffix), toUploadPrefix)
-		currentDir := filepath.Dir(p)
-		fileToUploadPath := filepath.Join(currentDir, fileToUpload)
-		if _, err := os.Stat(fileToUploadPath); err != nil {
-			if !os.IsNotExist(err) {
-				return err
-			}
-			err = fmt.Errorf("upload marker file (%s) found, but corresponding file (%s) not found", name, fileToUpload)
-			logger.LogAndSend(err.Error())
-			setSticky(err)
-			return nil
-		}
-		up.filesToUpload++
-
-		if err := up.syncToAzure(fileToUploadPath); err != nil {
-			err = fmt.Errorf("while trying to upload %v: %v", fileToUploadPath, err)
-			logger.LogAndSend(err.Error())
-			setSticky(err)
-			return nil
-		}
-		up.filesUploaded++
-
-		if err := os.Remove(p); err != nil {
-			err = fmt.Errorf("failed to remove upload marker %v: %v", p, err)
-			logger.LogAndSend(err.Error())
-			setSticky(err)
-			return nil
-		}
-
-		return nil
-	}
-
-	if err := filepath.WalkDir(up.rootDir, fn); err != nil {
-		setSticky(err)
-	}
-	return stickyErr
-}
-
-func (up *uploader) uploadRoot() error {
-	if up == nil || up.azShareCl == nil {
-		return initUploaderErr
-	}
-
-	files, err := os.ReadDir(up.rootDir)
-	if err != nil {
-		return err
-	}
-
-	up.filesSeen = 0
-	for _, de := range files {
-		if de.IsDir() {
-			continue
-		}
-
-		name := de.Name()
-
-		if !isSensorData(name) {
-			up.filesSeen++
-			continue
-		}
-
-		_, err := up.azShareCl.Create(context.TODO(), nil)
-		if err != nil && !fileerror.HasCode(err, fileerror.ShareAlreadyExists) {
-			return fmt.Errorf("Azure share creation failed: %v", err)
-		}
-
-		dirname, _ := datatype.DirType(datatype.SensorData)
-		cl := up.azShareCl.NewDirectoryClient(dirname)
-		if _, err := cl.Create(context.TODO(), nil); err != nil {
-			if !fileerror.HasCode(err, fileerror.ResourceAlreadyExists) {
-				return fmt.Errorf("failed to create sensordata directory: %v", err)
-			}
-		}
-
-		fullPath := filepath.Join(up.rootDir, name)
-		f, err := os.OpenFile(fullPath, os.O_RDONLY, 0)
-		if err != nil {
-			return err
-		}
-
-		defer f.Close()
-		fInfo, err := f.Stat()
-		if err != nil {
-			return err
-		}
-		fSize := fInfo.Size()
-
-		fClient := cl.NewFileClient(name)
-		// TODO: since we never delete them from the drive, we're systematically going
-		// to reupload them all at each run. Better safe than sorry, and probably not a big
-		// deal for now.
-		if _, err := fClient.Create(context.TODO(), fSize, nil); err != nil {
-			return fmt.Errorf("failed to create file %v: %v", name, err)
-		}
-
-		if err := fClient.UploadFile(context.TODO(), f, nil); err != nil {
-			return fmt.Errorf("failed to upload contents for file %v: %v", name, err)
-		}
-
-		logger.LogAndSend(fmt.Sprintf("Successfully uploaded to Azure: %v", fullPath))
-	}
 	return nil
 }
 

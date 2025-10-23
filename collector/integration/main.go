@@ -1,3 +1,7 @@
+// Copyright (c) The Arribada initiative.
+// Licensed under the GPLv3 License.
+
+// These tests live here, so we can run them on-device, on gokrazy.
 package main
 
 import (
@@ -81,6 +85,7 @@ func initGPS() ([]byte, error) {
 	return makeData(1e3)
 }
 
+// TODO: make sure we are compliant with the new upload system (i.e. chronological only)
 func populate(upload bool, skipSome bool) error {
 	var azShareCl *share.Client
 	if upload {
