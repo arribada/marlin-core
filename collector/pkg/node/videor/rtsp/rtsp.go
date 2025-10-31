@@ -35,6 +35,8 @@ const (
 )
 
 type Config struct {
+	// e.g. rtsp://foo:bar@192.168.87.252:554/Streaming/Channels/101/?transportmode=unicast
+	// or rtsp://foo:bar@192.168.87.N:554/Streaming/Channels/101/?transportmode=unicast for "automatic IP discover"
 	CaptureDevice string
 	DataDir       string
 	// TODO: use Verbose instead of klogger

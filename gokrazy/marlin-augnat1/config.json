@@ -8,7 +8,6 @@
 	"Packages": [
 		"github.com/gokrazy/serial-busybox",
 		"github.com/gokrazy/breakglass",
-		"github.com/gokrazy/wifi",
 		"tailscale.com/cmd/tailscaled",
 		"tailscale.com/cmd/tailscale",
 		"github.com/gokrazy/mkfs",
@@ -16,11 +15,13 @@
 		"github.com/arribada/marlin-core/transcriber/cmd/transcribe",
 		"github.com/gokrazy/syslogd/cmd/gokr-syslogd",
 		"github.com/arribada/marlin-core/collector/cmd/collect",
-		"github.com/arribada/marlin-core/gc/cmd/gc",
 		"github.com/arribada/marlin-core/collector/integration",
 		"github.com/arribada/marlin-core/databrowser/cmd/databrowser",
+		"github.com/arribada/marlin-core/gc/cmd/gc",
 		"github.com/arribada/marlin-core/gengps/cmd/gengps",
-		"github.com/arribada/marlin-core/captain/cmd/captain"
+		"github.com/arribada/marlin-core/captain/cmd/captain",
+		"github.com/arribada/marlin-core/gateway/cmd/gateway",
+		"github.com/arribada/marlin-core/usbnet/cmd/dhcp2"
 	],
 	"PackageConfig": {
 		"github.com/arribada/marlin-core/gc/cmd/gc": {
@@ -39,8 +40,23 @@
 				"-aggressive=true"
 			]
 		},
+		"github.com/arribada/marlin-core/gateway/cmd/gateway": {
+			"CommandLineFlags": [
+				"-lan=eth1",
+				"-wan=eth0"
+			]
+		},
 		"github.com/gokrazy/gokrazy/cmd/dhcp": {
-			"DontStart": true
+			"CommandLineFlags": [
+				"-extra_route_priority=10",
+				"-interface=eth0"
+			]
+		},
+		"github.com/arribada/marlin-core/usbnet/cmd/dhcp2": {
+			"CommandLineFlags": [
+				"-extra_route_priority=15",
+				"-interface=eth1"
+			]
 		},
 		"github.com/arribada/marlin-core/collector/integration": {
 			"DontStart": true
@@ -99,7 +115,7 @@
 			"CommandLineFlags": [
 				"-source=TRANSCRIBE_SOURCE",
 				"-captain=localhost:7143",
-				"-host=:8361",
+				"-host=:7141",
 				"-modelpath=/perm/transcribe/models/ggml-base.en.bin",
 				"-v=true",
 				"-stdout=true",
@@ -140,11 +156,6 @@
 			],
 			"ExtraFilePaths": {
 				"/etc/marlin-sa-key.json": "marlin-sa-key.json"
-			}
-		},
-		"github.com/gokrazy/wifi": {
-			"ExtraFilePaths": {
-				"/etc/wifi.json": "wifi.json"
 			}
 		},
 		"tailscale.com/cmd/tailscale": {

@@ -52,7 +52,7 @@ func init() {
 	// TODO: RecTimeout
 
 	flag.BoolVar(&flagVideoEnabled, "video", true, "enable Video capture")
-	flag.StringVar(&flagVideoDevice, "video_device", "/tmp/gps", "Video capture device")
+	flag.StringVar(&flagVideoDevice, "video_device", "", "Video capture device. Overriden by VIDEO_DEVICE env var.")
 	flag.StringVar(&flagVideoSplitDuration, "video_split", "10m", "Video split duration")
 
 	flag.BoolVar(&flagWatcherEnabled, "watcher", true, "enable data watcher")
