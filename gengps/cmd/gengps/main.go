@@ -47,11 +47,14 @@ func main() {
 	// $GPRMC,220516,A,5133.82,N,00042.24,W,173.8,231.8,130694,004.2,W*70
 
 	for {
-		data := fmt.Sprintf("$GPRMC,%s,A,%010.5f,N,%011.5f,W,%05.3f,231.8,130694,004.2,W*70\n",
-			curTime.Format("150405"),
+		timeOnly := curTime.Format("150405")
+		dateOnly := curTime.Format("020106")
+		data := fmt.Sprintf("$GPRMC,%s,A,%010.5f,N,%011.5f,W,%05.3f,231.8,%s,004.2,W*70\n",
+			timeOnly,
 			curLat*100,
 			curLong*100,
-			curSpeed)
+			curSpeed,
+			dateOnly)
 		if _, err := f.Write([]byte(data)); err != nil {
 			log.Fatal(err)
 		}
