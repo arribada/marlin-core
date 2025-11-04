@@ -1,3 +1,6 @@
+// Copyright (c) The Arribada initiative.
+// Licensed under the GPLv3 License.
+
 //go:build darwin
 
 package main
