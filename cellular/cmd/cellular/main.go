@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -36,8 +37,6 @@ const (
 	mbimConf    = "/etc/mbim-network.conf"
 )
 
-var DHCPProcess *os.Process
-
 func checkFlags() {}
 
 func main() {
@@ -54,9 +53,6 @@ func main() {
 		for {
 			time.Sleep(2 * time.Minute)
 			if err := checkValidAddr(); err != nil {
-				if err := DHCPProcess.Kill(); err != nil {
-					log.Printf("could not kill DHCP client: %v", err)
-				}
 				log.Fatal(err)
 			}
 		}
@@ -70,12 +66,14 @@ func main() {
 func dhcp() error {
 	// TODO: be stricter about parsing priority
 	cmd := exec.Command("/gokrazy/dhcp", "-interface=wwan0", fmt.Sprintf("-extra_route_priority=%d", flagPriority))
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Pdeathsig: syscall.SIGTERM,
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	DHCPProcess = cmd.Process
 	return cmd.Wait()
 }
 

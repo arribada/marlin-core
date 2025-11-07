@@ -1,4 +1,4 @@
-FROM goreleaser/goreleaser-cross:v1.23.3@sha256:cc69304a8817dde675f0afe551c380545d5f34444946004961116ff394437a6f AS builder
+FROM goreleaser/goreleaser-cross:v1.24.6@sha256:81e07633c633260da83369d2fbeb972fb746e5e613c8699cfa41fdec9c21340d AS builder
 
 RUN apt-get update
 # unzip needed for ingest
@@ -33,6 +33,9 @@ RUN make ffprobe
 
 WORKDIR /home/marlin/src/github.com/arribada/marlin-core/syslogd
 COPY ./syslogd .
+
+WORKDIR /home/marlin/src/github.com/arribada/marlin-core/ap
+COPY ./ap .
 
 WORKDIR /home/marlin/src/github.com/arribada/marlin-core/cellular
 COPY ./cellular .

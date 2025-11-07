@@ -51,6 +51,7 @@ databrowser/mybrowser
 gc/mygc
 cellular/mycell
 at/myat
+ap/myap
 *data/
 
 builddir/
@@ -59,3 +60,4 @@ artifact/
 cellular/freeze/
 kernel.rpi/
 !gokrazy/*/kernel.rpi/
+ap/freeze/
