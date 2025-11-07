@@ -83,11 +83,19 @@ FROM builder AS gengaf
 ARG instance=doesnotexist
 RUN --mount=type=cache,target=/home/marlin/pkg INSTANCE=$instance make gaf2
 
+FROM builder AS gensbom
+ARG instance=doesnotexist
+RUN --mount=type=cache,target=/home/marlin/pkg INSTANCE=$instance make sbom2
+
 # To generate full.gaf, and then copy it to host with:
 # docker build --target gaf --output=. .
 FROM scratch AS gaf
 ARG instance=doesnotexist
 COPY --from=gengaf /tmp/$instance.gaf /
+
+FROM scratch AS sbom
+ARG instance=doesnotexist
+COPY --from=gensbom /tmp/$instance.json /
 
 FROM scratch AS builddir
 ARG instance=doesnotexist

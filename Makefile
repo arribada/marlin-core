@@ -25,6 +25,11 @@ gaf: ## generate gaf
 gaf: fsck ffprobe validinstance
 	@docker build --progress=plain -f Dockerfile --build-arg gitcreds=${GITCREDS} --build-arg instance=${INSTANCE} --build-arg GOPROXY=${GOPROXY} --target gaf --output=. .
 
+.PHONY: sbom
+sbom: ## generate sbom
+sbom: fsck ffprobe validinstance
+	@docker build --progress=plain -f Dockerfile --build-arg gitcreds=${GITCREDS} --build-arg instance=${INSTANCE} --build-arg GOPROXY=${GOPROXY} --target sbom --output=. .
+
 .PHONY: update
 update: ## push update to GUS server
 update: validinstance
@@ -74,6 +79,12 @@ tests:
 gaf2: ## create gaf for ingestion
 gaf2: validinstance
 	@CGO_ENABLED=1 GOOS=linux GOARCH=arm64 ${GOPATH}/bin/gok --parent_dir ./gokrazy/ -i ${INSTANCE} overwrite --gaf /tmp/${INSTANCE}.gaf
+
+.PHONY: sbom2
+sbom2: ## generate sbom
+sbom2: validinstance
+	@CGO_ENABLED=1 GOOS=linux GOARCH=arm64 ${GOPATH}/bin/gok version
+	@CGO_ENABLED=1 GOOS=linux GOARCH=arm64 ${GOPATH}/bin/gok sbom --parent_dir ./gokrazy/ -i ${INSTANCE} --format json > /tmp/${INSTANCE}.json
 
 .PHONY: update2
 update2: ## push update to GUS server
