@@ -483,11 +483,6 @@ func newUploader(cfg Config) (*uploader, error) {
 		return nil, fmt.Errorf("Azure share client init failed: %v", err)
 	}
 
-	if _, err := cl.Create(context.TODO(), nil); err != nil {
-		if !fileerror.HasCode(err, fileerror.ShareAlreadyExists) {
-			return nil, fmt.Errorf("failed to create share %v: %v", cfg.AzureShare, err)
-		}
-	}
 	return &uploader{
 		azShareCl: cl,
 		rootDir:   cfg.DataDir,
