@@ -1,7 +1,5 @@
-module gokrazy/build/marlin-augnat1
+module gokrazy/build/marlin-augnat2
 
 go 1.23.3
 
-require github.com/gokrazy/kernel.rpi v0.0.0-20250302140133-9b64899e6b88 // indirect
-
-replace github.com/gokrazy/kernel.rpi => /home/marlin/src/github.com/gokrazy/kernel.rpi
+require github.com/gokrazy/kernel.rpi v0.0.0-20251127164438-9778ec0261de // indirect

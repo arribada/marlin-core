@@ -17,46 +17,24 @@ import (
 
 var version = "undefined"
 
-var ()
+var (
+	flagDuration int
+	timeout      time.Duration
+)
+
+func init() {
+	flag.IntVar(&flagDuration, "timeout", 500, "command timeout period in milliseconds")
+}
 
 func main() {
-	/*
-		ports, err := serial.GetPortsList()
-		if err != nil {
-			log.Fatal(err)
-		}
-		if len(ports) == 0 {
-			log.Fatal("No serial ports found!")
-		}
-		for _, port := range ports {
-			fmt.Printf("Found port: %v\n", port)
-		}
-
-		prts, err := enumerator.GetDetailedPortsList()
-		if err != nil {
-			log.Fatal(err)
-		}
-		if len(prts) == 0 {
-			fmt.Println("No serial ports found!")
-			return
-		}
-		for _, port := range prts {
-			fmt.Printf("Found port: %v\n", port)
-			if port.IsUSB {
-				fmt.Printf("   USB ID     %s:%s\n", port.VID, port.PID)
-				fmt.Printf("   USB serial %s\n", port.SerialNumber)
-			}
-		}
-	*/
-
 	dev := flag.String("d", "/dev/ttyUSB2", "path to modem device")
 	baud := flag.Int("b", 115200, "baud rate")
-	timeout := flag.Duration("t", 400*time.Millisecond, "command timeout period")
 	verbose := flag.Bool("v", false, "log modem interactions")
 	vsn := flag.Bool("version", false, "report version and exit")
 	theCMD := flag.String("cmd", "", "AT command to send")
 
 	flag.Parse()
+	timeout = time.Duration(flagDuration) * time.Millisecond
 	if *vsn {
 		fmt.Printf("%s %s\n", os.Args[0], version)
 		os.Exit(0)
@@ -70,59 +48,24 @@ func main() {
 	if *verbose {
 		mio = trace.New(m)
 	}
-	a := at.New(mio, at.WithTimeout(*timeout))
+	a := at.New(mio, at.WithTimeout(timeout))
 	err = a.Init()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	/*
-		cmds := []string{
-			"I",
-			"+GCAP",
-			"+CMEE=2",
-			"+CGMI",
-			"+CGMM",
-			"+CGMR",
-			"+CGSN",
-			"+CSQ",
-			"+CIMI",
-			"+CREG?",
-			"+CNUM",
-			"+CPIN?",
-			"+CEER",
-			"+CSCA?",
-			"+CSMS?",
-			"+CSMS=?",
-			"+CPMS=?",
-			"+CCID?",
-			"+CCID=?",
-			"^ICCID?",
-			"+CNMI?",
-			"+CNMI=?",
-			"+CNMA=?",
-			"+CMGF?",
-			"+CMGF=?",
-			"+CUSD?",
-			"+CUSD=?",
-			"^USSDMODE?",
-			"^USSDMODE=?",
-		}
-			for _, cmd := range cmds {
-				info, err := a.Command(cmd)
-				fmt.Println("AT" + cmd)
-				if err != nil {
-					fmt.Printf(" %s\n", err)
-					continue
-				}
-				for _, l := range info {
-					fmt.Printf(" %s\n", l)
-				}
-			}
-	*/
-
 	if *theCMD == "" {
 		return
+	}
+
+	if *verbose {
+		info, err := a.Command("E1")
+		if err != nil {
+			log.Printf(" %s\n", err)
+		}
+		for _, l := range info {
+			fmt.Printf(" %s\n", l)
+		}
 	}
 
 	info, err := a.Command(*theCMD)

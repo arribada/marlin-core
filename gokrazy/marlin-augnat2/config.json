@@ -55,7 +55,7 @@
 		},
 		"github.com/gokrazy/gokrazy/cmd/dhcp": {
 			"CommandLineFlags": [
-				"-extra_route_priority=10",
+				"-extra_route_priority=-1",
 				"-interface=eth0"
 			]
 		},
@@ -95,7 +95,8 @@
 				"/usr/local/lib/mbim/libz.so.1": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/libz.so.1"
 			},
 			"CommandLineFlags": [
-				"-pin=1234"
+				"-pin=1234",
+				"-priority=-2"
 			]
 		},
 		"github.com/arribada/marlin-core/captain/cmd/captain": {
