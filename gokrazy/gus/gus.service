@@ -1,0 +1,13 @@
+Description=GUS for Marlin
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=3
+User=mpl
+ExecStart=/home/mpl/bin/gus-server -image_dir /home/mpl/var/gus/ -database_source /home/mpl/var/gus-db -listen 100.120.76.35:8655
+
+[Install]
+WantedBy=multi-user.target
