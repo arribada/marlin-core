@@ -9,7 +9,7 @@ import (
 	"net/http"
 
 	"github.com/arribada/marlin-core/collector/pkg/config"
-	"github.com/arribada/marlin-core/collector/pkg/node/watcher"
+	"github.com/arribada/marlin-core/collector/pkg/watcher"
 )
 
 type cfgHandler struct {

@@ -19,8 +19,9 @@ import (
 	"github.com/arribada/marlin-core/collector/pkg/logger"
 	"github.com/arribada/marlin-core/collector/pkg/node/gpsr"
 	"github.com/arribada/marlin-core/collector/pkg/node/videor/rtsp"
-	"github.com/arribada/marlin-core/collector/pkg/node/watcher"
+	"github.com/arribada/marlin-core/collector/pkg/sat"
 	"github.com/arribada/marlin-core/collector/pkg/types"
+	"github.com/arribada/marlin-core/collector/pkg/watcher"
 	"github.com/arribada/marlin-core/common/pkg/utils"
 	"github.com/mpl/basicauth"
 
@@ -49,6 +50,11 @@ func main() {
 		}
 	}
 
+	// TODO: maybe setup as a group service, like the others.
+	if err := sat.SetupWing(cfg.Sat); err != nil {
+		log.Fatal(err)
+	}
+
 	go getReport(cfg.ReportURL)
 
 	var g run.Group
@@ -75,7 +81,8 @@ func main() {
 
 		// GPS recorder.
 		if cfg.GPSr.Enabled {
-			gps, err := gpsr.New(lgr, cfg.GPSr)
+			theChans.Position = make(chan types.Position)
+			gps, err := gpsr.New(lgr, cfg.GPSr, theChans.Position)
 			if err != nil {
 				log.Fatalf("while initializing GPS recorder: %v", err)
 			}

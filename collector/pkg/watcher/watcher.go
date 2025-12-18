@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/arribada/marlin-core/collector/pkg/logger"
+	"github.com/arribada/marlin-core/collector/pkg/sat"
 	"github.com/arribada/marlin-core/collector/pkg/types"
 	"github.com/arribada/marlin-core/common/pkg/datatype"
 	"golang.org/x/sys/unix"
@@ -162,16 +163,39 @@ func (ew *EventsWatcher) trackButtonPresses() {
 				}
 				time.Sleep(200 * time.Millisecond)
 			}
+			now := time.Now().UTC()
 			event := types.Event{
 				ButtonPress: &types.ButtonPress{
-					Time:  time.Now(),
+					Time:  now,
 					Start: bp,
 				},
 			}
 			if err := datatype.WriteEventFile(ew.config.DataDir, event, datatype.ButtonPress); err != nil {
 				logger.LogAndSend(fmt.Sprintf("while writing button press event: %v", err))
 			}
-			ew.lastButtonPress = time.Now()
+			ew.lastButtonPress = now
+			if bp {
+				var latestPos types.Position
+				tm := time.NewTimer(5 * time.Second)
+				select {
+				case ew.chans.Position <- types.Position{}:
+					select {
+					case latestPos = <-ew.chans.Position:
+					case <-tm.C:
+						log.Printf("timed out on receiving GPS position for alert. Proceeding without a position.")
+					}
+				case <-tm.C:
+					log.Printf("timed out on requesting GPS position for alert. Proceeding without a position.")
+				}
+
+				if err := sat.SendAlert(sat.Alert{
+					Time:      now,
+					Latitude:  latestPos.Latitude,
+					Longitude: latestPos.Longitude,
+				}); err != nil {
+					log.Printf("failed to send alert on button press: %v", err)
+				}
+			}
 		}()
 	}
 }

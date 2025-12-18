@@ -99,6 +99,11 @@ func (e *Event) Kind() int {
 	return UnknownEvent
 }
 
+type Position struct {
+	Latitude  float64
+	Longitude float64
+}
+
 // Chans is the set of various channels for the core components to
 // communicate with each other.
 type Chans struct {
@@ -111,4 +116,6 @@ type Chans struct {
 	// ButtonPress is for the button presses handler to instruct the data watcher to
 	// create a button press event file.
 	ButtonPress chan bool
+	// Position is for the GPS recorder to communicate the latest position to whoever asks
+	Position chan Position
 }

@@ -21,7 +21,7 @@ import (
 func TestArchiveFile(t *testing.T) {
 	dir := t.TempDir()
 	dataType := datatype.GPS
-	tm := time.Now()
+	tm := time.Now().UTC()
 
 	name, err := datatype.NewFileName(dataType, tm)
 	if err != nil {

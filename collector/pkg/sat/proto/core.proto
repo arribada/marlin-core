@@ -1,0 +1,63 @@
+syntax = "proto3";
+package sat;
+option go_package = "./pb";
+
+message SatInit {
+    string id = 1;
+    string addr = 2;
+    string sec_key = 3;
+    string rconf = 4;
+}
+
+message SatMessage {
+    string message = 1;
+}
+
+message Info {
+    string hostname = 1;
+    string tailscale_ip = 2;
+    string wifi_network = 3;
+}
+
+message CoreStatus {
+    Status camera = 1;
+    Status controller = 2;
+    Status cloud_connection = 3;
+    float storage_usage = 4;
+
+    enum Status {
+        OK = 0;
+        BAD = 1;
+        UNKNOWN = 2;
+    }
+}
+
+message HarbourMode {
+    Command cmd = 1;
+
+    enum Command {
+        ENTER = 0;
+        EXIT = 1;
+    }
+}
+
+message CoreMessage {
+    uint32 msg_id = 1;
+    oneof message {
+        SatMessage sat = 2;
+        Info info = 3;
+        CoreStatus status = 4;
+        HarbourMode mode = 5;
+        SatInit init = 6;
+    }
+}
+
+message LpmReply {
+    uint32 msg_id = 1;
+    Response response = 2;
+
+    enum Response {
+        OK = 0;
+        ERROR = 1;
+    }
+}

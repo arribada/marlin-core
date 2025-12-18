@@ -53,6 +53,7 @@ gc/mygc
 cellular/mycell
 at/myat
 ap/myap
+lpm/mylpm
 *data/
 
 builddir/

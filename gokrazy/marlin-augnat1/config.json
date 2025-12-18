@@ -28,6 +28,7 @@
 	],
 	"PackageConfig": {
 		"github.com/arribada/marlin-core/ap/cmd/ap": {
+			"DontStart": true,
 			"ExtraFilePaths": {
 				"/usr/local/bin/hostapd": "/home/marlin/src/github.com/arribada/marlin-core/ap/freeze/hostapd",
 				"/usr/local/lib/hostapd/ld-linux-aarch64.so.1": "/home/marlin/src/github.com/arribada/marlin-core/ap/freeze/ld-linux-aarch64.so.1",
@@ -50,7 +51,6 @@
 			]
 		},
 		"github.com/gokrazy/wifi": {
-			"DontStart": true,
 			"ExtraFilePaths": {
 				"/etc/wifi.json": "wifi.json"
 			}

@@ -14,9 +14,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/arribada/marlin-core/collector/pkg/logger"
+	"github.com/arribada/marlin-core/collector/pkg/types"
 	"github.com/arribada/marlin-core/common/pkg/datatype"
 	"github.com/arribada/marlin-core/common/pkg/utils"
 
@@ -52,6 +54,10 @@ type GPSr struct {
 	// slice of SRMCs, and we make a new one everytime the HDOP changes, but that
 	// sounds awkward...
 	rmc []SRMCplus
+
+	latestPosMu sync.RWMutex
+	latestPos   types.Position
+	posChan     chan types.Position
 }
 
 // for "short" RMC, since we want to omit some of the fields of the original
@@ -116,7 +122,7 @@ func trimRMC(rmc nmea.RMC) SRMC {
 }
 
 // TODO: remove klog
-func New(lgr klog.Logger, cfg Config) (*GPSr, error) {
+func New(lgr klog.Logger, cfg Config, posChan chan types.Position) (*GPSr, error) {
 	if cfg.CaptureDevice == "" {
 		return nil, errors.New("no capture device was provided")
 	}
@@ -135,6 +141,7 @@ func New(lgr klog.Logger, cfg Config) (*GPSr, error) {
 		klogger:    klog.With(lgr, "component", ComponentName),
 		config:     cfg,
 		dop:        -1,
+		posChan:    posChan,
 	}, nil
 }
 
@@ -145,7 +152,22 @@ func (g *GPSr) Run(ctx context.Context) error {
 		return fmt.Errorf("while creating root destination dir %v: %w", g.config.DataDir, err)
 	}
 
+	go g.listenPosChan(ctx)
+
 	return g.recording(ctx)
+}
+
+func (g *GPSr) listenPosChan(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-g.posChan:
+			g.latestPosMu.RLock()
+			g.posChan <- g.latestPos
+			g.latestPosMu.RUnlock()
+		}
+	}
 }
 
 func (g *GPSr) Stop(cancel context.CancelFunc) {
@@ -362,5 +384,10 @@ func (g *GPSr) parseGPS(l string) (bool, error) {
 	}
 
 	g.rmc = append(g.rmc, rmcp)
+
+	g.latestPosMu.Lock()
+	defer g.latestPosMu.Unlock()
+	g.latestPos.Latitude = rmcp.SRMC.Latitude
+	g.latestPos.Longitude = rmcp.SRMC.Longitude
 	return true, nil
 }

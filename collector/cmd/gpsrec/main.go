@@ -36,7 +36,7 @@ func main() {
 		// You can tweak that one to control the length/size of each generated .json
 		// file. Keep it below RecTimeout though.
 		SplitDuration: time.Minute,
-	})
+	}, nil)
 	if err != nil {
 		log.Fatalf("while initializing GPS recorder: %v", err)
 	}

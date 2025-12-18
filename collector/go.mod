@@ -15,6 +15,7 @@ require (
 	github.com/pion/rtp v1.10.0
 	github.com/pkg/errors v0.9.1
 	go.bug.st/serial v1.6.2
+	google.golang.org/protobuf v1.36.11
 )
 
 require (

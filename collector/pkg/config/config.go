@@ -11,7 +11,8 @@ import (
 	"github.com/arribada/marlin-core/collector/pkg/controller"
 	"github.com/arribada/marlin-core/collector/pkg/node/gpsr"
 	"github.com/arribada/marlin-core/collector/pkg/node/videor/rtsp"
-	"github.com/arribada/marlin-core/collector/pkg/node/watcher"
+	"github.com/arribada/marlin-core/collector/pkg/sat"
+	"github.com/arribada/marlin-core/collector/pkg/watcher"
 )
 
 var (
@@ -38,6 +39,13 @@ var (
 	flagControllerEnabled bool
 	flagHost              string
 	flagTranscriberURL    string
+
+	flagSatEnabled bool
+	flagSatDevice  string
+	flagSatID      string
+	flagSatAddr    string
+	flagSatSecKey  string
+	flagSatRconf   string
 )
 
 func init() {
@@ -66,6 +74,13 @@ func init() {
 	flag.BoolVar(&flagControllerEnabled, "controller", true, "enable controller handler")
 	flag.StringVar(&flagHost, "host", ":7140", "Host:port where we listen for controller messages.")
 	flag.StringVar(&flagTranscriberURL, "transcriber_url", "http://localhost:7141", "URL where to send messages for transcriber.")
+
+	flag.BoolVar(&flagSatEnabled, "sat", true, "enable Satellite comms")
+	flag.StringVar(&flagSatDevice, "sat_device", "/dev/cu.usbmodem1101", "Path to the satellite device. Typically a feather SMD wing on a serial USB port.")
+	flag.StringVar(&flagSatID, "sat_id", "", "")
+	flag.StringVar(&flagSatAddr, "sat_address", "", "")
+	flag.StringVar(&flagSatSecKey, "sat_seckey", "", "")
+	flag.StringVar(&flagSatRconf, "sat_rconf", "2c93600d6be3bac0ccfe9047c02c058e", "Satellite message size. Defaults to LDA2 (192 bits).")
 }
 
 type Config struct {
@@ -76,6 +91,7 @@ type Config struct {
 	GPSr        gpsr.Config
 	DataWatcher watcher.Config
 	Controller  controller.Config
+	Sat         sat.Config
 }
 
 var Default = Config{}
@@ -149,6 +165,19 @@ func parseController() (*controller.Config, error) {
 	}, nil
 }
 
+func parseSat() (*sat.Config, error) {
+	// TODO: env vars
+	return &sat.Config{
+		Enabled: flagSatEnabled,
+		Device:  flagSatDevice,
+		Verbose: flagVerbose,
+		ID:      flagSatID,
+		Addr:    flagSatAddr,
+		SecKey:  flagSatSecKey,
+		Rconf:   flagSatRconf,
+	}, nil
+}
+
 func Parse() (*Config, error) {
 	flag.Parse()
 
@@ -187,6 +216,14 @@ func Parse() (*Config, error) {
 			return nil, err
 		}
 		cfg.Controller = *cont
+	}
+
+	if flagSatEnabled {
+		sat, err := parseSat()
+		if err != nil {
+			return nil, err
+		}
+		cfg.Sat = *sat
 	}
 
 	injectVideoAlwaysOn(cfg)
