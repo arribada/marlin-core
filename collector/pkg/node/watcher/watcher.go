@@ -418,6 +418,9 @@ func (sw *EventsWatcher) archiveFile(dataType int, fullPath string) (string, err
 		return "", err
 	}
 
+	// TODO: if the program dies right here (e.g. because the vessel
+	// power shuts down), our file will never get uploaded, since it's
+	// never been marked. Fix that.
 	if err := markForUpload(newFullPath); err != nil {
 		return newFullPath, fmt.Errorf("while marking file %v for upload: %v", newFullPath, err)
 	}
@@ -527,6 +530,21 @@ func (up *uploader) loop(ctx context.Context) {
 	}
 }
 
+// uploadAll (lexicographically) goes through the whole tree of
+// data, and for each upload marker it finds, it uploads the corresponding
+// data file. It removes the upload marker right after the data file
+// is uploaded. So it is a bit wastefull to go through the whole tree
+// everytime, but relying on the upload markers presence allows us to
+// go through it all pretty fast nonetheless. Also, we rely on the
+// garbage collector to remove older uploaded data as we go, so the
+// size of the tree is always limited.
+// This simple approach allows us to act very simply as well on the
+// database pipeline side: on Azure, any (day) directory that is not
+// the last one chronologically is by design complete, and therefore
+// can and should be considered and downloaded only once. So we only
+// have to systematically redo the last day on each loop, just in case
+// it is not yet complete. And even then, we have checks in place to
+// avoid processing files (of the last day) that we have already done.
 func (up *uploader) uploadAll() error {
 	if up == nil || up.azShareCl == nil {
 		return initUploaderErr
