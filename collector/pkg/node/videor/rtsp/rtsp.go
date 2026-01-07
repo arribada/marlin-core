@@ -4,64 +4,67 @@
 package rtsp
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"log"
-	"math"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/arribada/marlin-core/collector/pkg/logger"
 	"github.com/arribada/marlin-core/common/pkg/datatype"
-	"github.com/arribada/marlin-core/common/pkg/utils"
 
-	klog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
-	"github.com/nareix/joy5/av"
-	"github.com/nareix/joy5/format"
-	"github.com/nareix/joy5/format/mp4"
-	"github.com/nareix/joy5/format/rtsp"
+	"github.com/bluenviron/gortsplib/v5"
+	"github.com/bluenviron/gortsplib/v5/pkg/base"
+	"github.com/bluenviron/gortsplib/v5/pkg/description"
+	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/gortsplib/v5/pkg/format/rtph264"
+	"github.com/pion/rtp"
 )
 
+// To easily test this package as a "program":
+// /user/collect -host=:7140 -captain="" -video=true -gps=false -datadir=/tmp/marlin -v=true -video_device='rtsp://foo:bar@192.168.87.250:554/live1s1.sdp' -video_split=1m
+
 const (
-	ComponentName   = "rtsp video recorder"
 	defaultRTSPPort = 554
 	ipPlaceHolder   = ".N"
 )
 
+var pktTimeout = 5 * time.Second
+
 type Config struct {
-	// e.g. rtsp://foo:bar@192.168.87.252:554/Streaming/Channels/101/?transportmode=unicast
-	// or rtsp://foo:bar@192.168.87.N:554/Streaming/Channels/101/?transportmode=unicast for "automatic IP discover"
+	// e.g. on Hilook:
+	// rtsp://foo:bar@192.168.87.252:554/Streaming/Channels/101/?transportmode=unicast
+	// Vivotek:
+	// rtsp://foo:bar@192.168.87.250:554/live1s1.sdp
+	// And for automatic IP discovery:
+	// rtsp://foo:bar@192.168.87.N:554/Streaming/Channels/101/?transportmode=unicast
 	CaptureDevice string
 	DataDir       string
-	// TODO: use Verbose instead of klogger
-	Verbose bool
-	Enabled bool
+	Verbose       bool
+	Enabled       bool
 	// Maximum duration of a recording sequence. Use non positive value for continuous
-	// recording.
+	// recording. In continuous mode, recording is automatically restarted on errors.
 	RecTimeout    time.Duration
 	SplitDuration time.Duration
 	RecAuto       bool
 }
 
-func New(lgr klog.Logger, cfg Config, ctrlCh chan bool) (*Videor, error) {
-	lgr, err := logger.ApplyFilter("info", lgr)
-	if err != nil {
-		return nil, err
-	}
-
+func New(cfg Config, ctrlCh chan bool) (*Videor, error) {
 	vr := &Videor{
-		klogger: klog.With(lgr, "component", ComponentName),
-		config:  cfg,
-		ctrlCh:  ctrlCh,
+		config: cfg,
+		ctrlCh: ctrlCh,
 		// unbuffered so that we drop any extra "start" events
 		// that come in during a recording.
 		recordStart: make(chan struct{}),
+
+		errC:    make(chan error),
+		packetC: make(chan *rtp.Packet, 100),
 	}
 	if cfg.RecTimeout <= 0 {
 		vr.forever = true
@@ -71,11 +74,10 @@ func New(lgr klog.Logger, cfg Config, ctrlCh chan bool) (*Videor, error) {
 }
 
 type Videor struct {
-	klogger klog.Logger
-	config  Config
+	config Config
 
 	// if config.RecTimeout not positive, we record forever. And we ignore button
-	// presses.
+	// presses. And we restart recording on critical errors.
 	forever bool
 
 	// receives "button presses" events.
@@ -95,10 +97,23 @@ type Videor struct {
 	// not empty. Otherwise dynamically set on startup to whatever device is
 	// brute-force found on the network.
 	captureDevice string
+
+	// stream decoding
+	cl     *gortsplib.Client
+	frmt   *format.H264
+	media  *description.Media
+	rtpDec *rtph264.Decoder
+	// mpgeg-ts writer
+	muxer *mpegtsMuxer
+
+	// to synchronize handlePackets with record
+	errC chan error
+	// to synchronize readPacket with handlePackets
+	packetC chan *rtp.Packet
 }
 
 func (v *Videor) Run(ctx context.Context) error {
-	_ = level.Info(v.klogger).Log("msg", "starting")
+	log.Printf("Video recorder starting")
 
 	if err := os.MkdirAll(v.config.DataDir, os.ModePerm); err != nil {
 		return fmt.Errorf("while creating root destination dir %v: %w", v.config.DataDir, err)
@@ -252,12 +267,12 @@ func tcpPing(reqOrigin, dest string, timeout time.Duration) error {
 }
 
 func (v *Videor) Stop(cancel context.CancelFunc) {
-	_ = level.Info(v.klogger).Log("msg", "stopped")
+	log.Printf("Video recorder stopped")
 	cancel()
 }
 
 func (v *Videor) handleRequest(start bool) {
-	_ = level.Debug(v.klogger).Log("msg", "handling external request")
+	log.Printf("Video recorder: handling external request")
 
 	// !start == stop
 	if !start {
@@ -270,28 +285,28 @@ func (v *Videor) handleRequest(start bool) {
 		if v.recordStop == nil {
 			return
 		}
-		_ = level.Debug(v.klogger).Log("msg", "stopping the recording")
+		log.Printf("Video recorder: stopping the recording")
 		v.recordStop()
 		return
 	}
 
 	select {
 	case v.recordStart <- struct{}{}:
-		_ = level.Debug(v.klogger).Log("msg", "starting the recording")
+		log.Printf("Video recorder: starting the recording")
 	default:
-		_ = level.Debug(v.klogger).Log("msg", "discarding request, already recording")
+		log.Printf("Video recorder: discarding request, already recording")
 	}
 }
 
 func (v *Videor) startListen(ctx context.Context) {
-	_ = level.Info(v.klogger).Log("msg", "starting to listen for events")
+	log.Printf("Video recorder: starting to listen for events")
 	go v.recordLoop(ctx)
 
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
-				_ = level.Debug(v.klogger).Log("msg", "listening event loop terminated")
+				log.Printf("Video recorder: listening event loop terminated")
 				return
 			case req := <-v.ctrlCh:
 				v.handleRequest(req)
@@ -304,10 +319,10 @@ func (v *Videor) startListen(ctx context.Context) {
 	}
 
 	if v.config.RecAuto {
-		logger.LogAndSend("Starting automatic video recording")
+		log.Printf("Starting automatic video recording")
 	}
 	if v.forever {
-		logger.LogAndSend("Starting perpetual video recording")
+		log.Printf("Starting perpetual video recording")
 	}
 
 	// we are technically racing with recordLoop startup, so let's give it a second
@@ -341,7 +356,7 @@ func (v *Videor) recordLoop(ctx context.Context) {
 		v.recordStopMu.Unlock()
 
 		err := v.record(recordCtx)
-		_ = level.Debug(v.klogger).Log("msg", "recording sequence over")
+		log.Printf("Video recorder: recording sequence over")
 		if err == nil {
 			autoRestartBackoff = time.Second
 			continue
@@ -349,7 +364,7 @@ func (v *Videor) recordLoop(ctx context.Context) {
 
 		// TODO: terminate if it's a critical error, like no storage space anymore?
 		// And use an err chan to propagate the error upwards maybe?
-		logger.LogAndSend(fmt.Sprintf("Video recording error: %v", err), true)
+		log.Printf("Video recording error: %v", err)
 
 		if !v.forever {
 			continue
@@ -363,173 +378,324 @@ func (v *Videor) recordLoop(ctx context.Context) {
 			}
 			select {
 			case v.recordStart <- struct{}{}:
-				logger.LogAndSend("Auto-restarting video recording")
+				log.Printf("Auto-restarting video recording")
 			case <-time.After(5 * time.Second):
-				logger.LogAndSend("Failed to auto-restart video recording")
+				log.Printf("Failed to auto-restart video recording")
 			}
 		}()
 	}
 }
 
-func (v *Videor) record(ctx context.Context) (err error) {
-	rtspTimeout := 3 * time.Second
-	_ = level.Debug(v.klogger).Log("dialing", v.captureDevice)
-	cl, err := rtsp.DialTimeout(v.captureDevice, rtspTimeout)
-	if err != nil {
+// returns nil if recording was stopped by context, or by max duration.
+// returns an error otherwise (critical error). Errors that do not
+// prevent the eventual creation of a video file are not returned
+// (non-critical).
+func (vr *Videor) record(ctx context.Context) (err error) {
+	if err := vr.connect(); err != nil {
 		return fmt.Errorf("while connecting to the capture device: %v", err)
 	}
 	defer func() {
-		if closeErr := cl.Close(); closeErr != nil {
-			err = utils.MaybeWrap(closeErr, err, "while closing capture client")
-		}
+		vr.cl.Close()
 	}()
-	cl.RtspTimeout = rtspTimeout              // add timeout for receiving rtsp packets
-	cl.RtpKeepAliveTimeout = 10 * time.Second // add keep alive rtsp packets
 
-	if !v.forever {
-		_ = level.Info(v.klogger).Log("msg", fmt.Sprintf("starting to record for %v", v.config.RecTimeout))
+	if !vr.forever {
+		log.Printf("starting to record for %v", vr.config.RecTimeout)
 	}
 
-	for {
-		// Split and save the whole recording into separate files.
-		// Respecting the total Rec timeout.
-		var remainingDuration time.Duration
-		if v.forever {
-			// duration <= 0 in config means we record forever.
-			remainingDuration = time.Duration(math.MaxInt64)
-		} else {
-			remainingDuration = v.config.RecTimeout - time.Since(v.startTime)
-			if remainingDuration <= 0 {
-				_ = level.Debug(v.klogger).Log("msg", "recording reached maximum duration")
-				return nil
-			}
+	go func() {
+		// we don't want to do all that from within readPacket, because we
+		// have no control on whether/when OnPacketRTP is actually called, and
+		// we need to send on vr.errC to unblock when recording is over.
+		if err := vr.handlePackets(ctx); err != nil {
+			vr.errC <- err
+			return
 		}
+		vr.errC <- nil
+	}()
 
-		nextFileDuration := v.config.SplitDuration
-		if remainingDuration < v.config.SplitDuration {
-			nextFileDuration = remainingDuration
-		}
+	vr.cl.OnPacketRTP(vr.media, vr.frmt, func(pkt *rtp.Packet) {
+		vr.readPacket(pkt)
+	})
 
-		if err := v.recordWithDuration(ctx, cl, nextFileDuration); err != nil {
-			return fmt.Errorf("while recording: %w", err)
-		}
-		select {
-		case <-ctx.Done():
-			_ = level.Debug(v.klogger).Log("msg", "recording sequence stopped")
-			return nil
-		default:
-		}
+	// start playing
+	_, err = vr.cl.Play(nil)
+	if err != nil {
+		return fmt.Errorf("while starting stream: %v", err)
 	}
+
+	// we're doing our own sync with vr.errC, because I think the Close
+	// VS Wait mechanism from the lib is buggy.
+	err = <-vr.errC
+	if err != nil {
+		return fmt.Errorf("recording error: %v", err)
+	}
+
+	return nil
 }
 
-func (v *Videor) recordWithDuration(ctx context.Context, cl *rtsp.Client, timeout time.Duration) (err error) {
+func (v *Videor) newMuxer(frmt *format.H264) (*mpegtsMuxer, error) {
 	// write in a temp dir, because we want to finish with a rename in the fsnotify
 	// watched dir.
 	tmpDir := filepath.Join(v.config.DataDir, datatype.TmpDirName)
 	if err := os.MkdirAll(tmpDir, os.ModePerm); err != nil {
-		return fmt.Errorf("while creating temp destination dir: %w", err)
+		return nil, fmt.Errorf("while creating temp destination dir: %w", err)
 	}
-	of, err := datatype.CreateFile(tmpDir, datatype.Video)
+	fileName, err := datatype.NewFileName(datatype.Video, time.Now())
 	if err != nil {
-		return fmt.Errorf("while creating record file: %w", err)
+		return nil, err
 	}
-
-	defer func() {
-		err = v.finalize(err, of)
-	}()
-
-	if !v.forever {
-		_ = level.Info(v.klogger).Log("msg", fmt.Sprintf("starting new recording for %v", timeout))
+	fileName = filepath.Join(tmpDir, fileName)
+	fileName = strings.Replace(fileName, ".mp4", ".ts", 1)
+	// setup H264 -> MPEG-TS muxer
+	mux := &mpegtsMuxer{
+		fileName: fileName,
+		sps:      frmt.SPS,
+		pps:      frmt.PPS,
 	}
-	tm := time.NewTimer(timeout)
+	if err := mux.initialize(); err != nil {
+		return nil, err
+	}
+	return mux, nil
+}
 
-	var m *mp4.Muxer
-	m, err = mp4.NewMuxer(format.NewStreamsWriteSeeker(of, cl))
+func (vr *Videor) connect() error {
+	u, err := base.ParseURL(vr.captureDevice)
 	if err != nil {
-		return fmt.Errorf("while initializing video muxer: %w", err)
+		return err
 	}
 
-	if err := m.WriteFileHeader(); err != nil {
-		return fmt.Errorf("while writing file header: %w", err)
+	c := &gortsplib.Client{
+		Scheme: u.Scheme,
+		Host:   u.Host,
 	}
 
-	success := false
-	for {
-		select {
-		case <-ctx.Done():
-			_ = level.Debug(v.klogger).Log("msg", "stopped recording from context")
-			break
-		case <-tm.C:
-			_ = level.Debug(v.klogger).Log("msg", "recording part reached maximum size")
-			break
-		default:
-			var pkt av.Packet
-			ch := make(chan struct{})
-			go func() {
-				pkt, err = cl.ReadPacket()
-				<-ch
-			}()
-			select {
-			case ch <- struct{}{}:
-			case <-time.After(5 * time.Second):
-				close(ch)
-				return errors.New("timeout on receiving packet from camera")
-			}
-			if err != nil {
-				// we are losing some packets from camera here
-				_ = level.Error(v.klogger).Log("msg", "while reading from capture device", "err", err)
-				time.Sleep(100 * time.Millisecond) // Rate limit after an error to allow time to recover.
-				continue
-			}
-			if err = m.WritePacket(pkt); err != nil {
-				_ = level.Error(v.klogger).Log("msg", "while writing video packet", "err", err)
-				time.Sleep(100 * time.Millisecond) // Rate limit after an error to allow time to recover.
-				// overkill for now, but keep it in case we ever had anything after
-				continue
-			}
-			// if we wrote at least one packet, consider it a success
-			success = true
-			continue
-		}
-		break
+	// connect to the server
+	if err := c.Start(); err != nil {
+		return err
 	}
 
-	if success {
-		// disregagrd read/write errors if we were successful at least once
-		err = nil
-	}
-
+	// find available medias
+	desc, _, err := c.Describe(u)
 	if err != nil {
-		return
+		return err
 	}
 
-	if err := m.WriteTrailer(); err != nil {
-		return fmt.Errorf("while writing video file trailer: %w", err)
+	// find the H264 media and format
+	var frmt *format.H264
+	media := desc.FindFormat(&frmt)
+	if media == nil {
+		return errors.New("media not found")
 	}
+
+	// setup RTP -> H264 decoder
+	rtpDec, err := frmt.CreateDecoder()
+	if err != nil {
+		return fmt.Errorf("failed to creade h264 decoder: %v", err)
+	}
+
+	// setup a single media
+	_, err = c.Setup(desc.BaseURL, media, 0, 0)
+	if err != nil {
+		return fmt.Errorf("failed to setup media: %v", err)
+	}
+
+	vr.cl = c
+	vr.rtpDec = rtpDec
+	vr.media = media
+	vr.frmt = frmt
+
+	muxer, err := vr.newMuxer(vr.frmt)
+	if err != nil {
+		return fmt.Errorf("while initializing mpeg-ts muxer: %v", err)
+	}
+	vr.muxer = muxer
+
 	return nil
 }
 
-func (v *Videor) finalize(oldErr error, of *os.File) error {
-	name := of.Name()
-	// if anything went wrong, abort, and remove file
-	if oldErr != nil {
-		// we can ignore closing error, since we're going to remove anyway
-		_ = of.Close()
-		if rmErr := os.Remove(name); rmErr != nil {
-			return utils.MaybeWrap(rmErr, oldErr, "while removing incomplete video file")
+// should be a const, but actually a var so we can change it during tests
+var FFmpgebin string
+
+func init() {
+	// location in production on gokrazy
+	FFmpgebin = "/usr/local/bin/ffmpeg"
+	loc, err := exec.LookPath("ffmpeg")
+	if err == nil {
+		FFmpgebin = loc
+		return
+	}
+}
+
+func tsToMP4(input string) (string, string, error) {
+	output := strings.Replace(input, ".ts", ".mp4", 1)
+	var stderr bytes.Buffer
+	var stdout bytes.Buffer
+	cmd := exec.Command(FFmpgebin, "-i", input, output)
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+	err := cmd.Run()
+	out := stdout.String() + stderr.String()
+	if err != nil {
+		return "", "", fmt.Errorf("while converting %v to mp4: %v", input, out)
+	}
+	return out, output, nil
+}
+
+func (vr *Videor) writeVideoFile(concurrent bool) error {
+	tsFile := vr.muxer.fileName
+	// TODO: maybe make close return an error.
+	vr.muxer.close()
+	if vr.config.Verbose {
+		log.Printf("finished writing %v", tsFile)
+	}
+
+	// TODO: remove concurrent mode, when we stop relying on ffmpeg.
+	if !concurrent {
+		if err := vr.writeMP4(tsFile); err != nil {
+			return fmt.Errorf("while writing MP4: %v", err)
 		}
-		return oldErr
+		return nil
 	}
 
-	if closeErr := of.Close(); closeErr != nil {
-		return utils.MaybeWrap(closeErr, oldErr, fmt.Sprintf("while closing file %v", name))
+	go func() {
+		if err := vr.writeMP4(tsFile); err != nil {
+			log.Printf("while writing MP4: %v", err)
+		}
+	}()
+
+	return nil
+}
+
+func (vr *Videor) writeMP4(tsFile string) error {
+	_, name, err := tsToMP4(tsFile)
+	if err != nil {
+		return err
 	}
 
-	newName := filepath.Join(v.config.DataDir, filepath.Base(name))
-	if rnErr := os.Rename(name, newName); rnErr != nil {
-		return utils.MaybeWrap(rnErr, oldErr, fmt.Sprintf("while renaming file %v", name))
+	if err := os.Remove(tsFile); err != nil {
+		return err
 	}
-	_ = level.Info(v.klogger).Log("msg", "recording saved", "path", newName)
 
-	return oldErr
+	newName := filepath.Join(vr.config.DataDir, filepath.Base(name))
+	if err := os.Rename(name, newName); err != nil {
+		return fmt.Errorf("while renaming %v: %v", name, err)
+	}
+
+	if vr.config.Verbose {
+		log.Printf("finished writing %v", newName)
+	}
+
+	return nil
+}
+
+func (vr *Videor) splitDuration() time.Duration {
+	// Split and save the whole recording into separate files.
+	// Respecting the total Rec timeout.
+	if vr.forever {
+		// duration <= 0 in config means we record forever.
+		return vr.config.SplitDuration
+	}
+
+	dur := vr.config.RecTimeout - time.Since(vr.startTime)
+	if dur < vr.config.SplitDuration {
+		return dur
+	}
+
+	return vr.config.SplitDuration
+}
+
+func (vr *Videor) handlePacket(pkt *rtp.Packet) error {
+	// decode timestamp
+	pts, ok := vr.cl.PacketPTS(vr.media, pkt)
+	if !ok {
+		if vr.config.Verbose {
+			log.Printf("rtp: waiting for timestamp in packet")
+		}
+		return nil
+	}
+
+	// extract access unit from RTP packets
+	au, err := vr.rtpDec.Decode(pkt)
+	if err != nil {
+		if !errors.Is(err, rtph264.ErrNonStartingPacketAndNoPrevious) && !errors.Is(err, rtph264.ErrMorePacketsNeeded) {
+			if vr.config.Verbose {
+				log.Printf("rtp decoding error: %v", err)
+			}
+			return nil
+		}
+		return nil
+	}
+
+	// encode the access unit into MPEG-TS
+	if err := vr.muxer.writeH264(au, pts); err != nil {
+		if vr.config.Verbose {
+			log.Printf("while writing H264 stream: %v", err)
+		}
+		return nil
+	}
+
+	return nil
+}
+
+func (vr *Videor) handlePackets(ctx context.Context) (fErr error) {
+	splitTimer := time.NewTimer(vr.config.SplitDuration)
+	pktTimer := time.NewTimer(pktTimeout)
+	for {
+		select {
+		case <-ctx.Done():
+			log.Printf("stopped recording, by context interruption")
+			if err := vr.writeVideoFile(false); err != nil {
+				return fmt.Errorf("while writing last video file: %v", err)
+			}
+			return nil
+		case pkt := <-vr.packetC:
+			// At the moment, from within handlePacket we actually ignore
+			// all errors, so we don't even need to check for errors on return
+			// here. If we ever change our minds about that, and decide to return
+			// on error here, we might want to write to disk whatever video we've
+			// had so far.
+			vr.handlePacket(pkt)
+			pktTimer.Reset(pktTimeout)
+		case <-pktTimer.C:
+			return fmt.Errorf("timeout waiting for packet")
+		case <-splitTimer.C:
+			// This error handling is a lie atm, since writeVideoFile does not
+			// return any error in concurrent mode.
+			if err := vr.writeVideoFile(true); err != nil {
+				return fmt.Errorf("while writing video file: %v", err)
+			}
+
+			dur := vr.splitDuration()
+			if dur <= 0 {
+				if vr.config.Verbose {
+					log.Printf("recording reached maximum duration")
+				}
+				return nil
+			}
+
+			// Better to do newMuxer here (rather than earlier), so in case of
+			// maximum duration we do not create an empty .ts file for nothing.
+			mx, err := vr.newMuxer(vr.frmt)
+			if err != nil {
+				return fmt.Errorf("while initializing new mpgeg-ts muxer: %v", err)
+			}
+			// I have checked that OnPacketRTP is called synchronously and sequentially for
+			// each packet, so it is safe to reset the muxer directly in there.
+			vr.muxer = mx
+
+			splitTimer.Reset(dur)
+			pktTimer.Reset(pktTimeout)
+		}
+	}
+}
+
+func (vr *Videor) readPacket(pkt *rtp.Packet) {
+	tm := time.NewTimer(pktTimeout)
+	select {
+	case vr.packetC <- pkt:
+	// we need this timeout for termination. Otherwise OnPacketRTP
+	// deadlocks the final Close().
+	case <-tm.C:
+		return
+	}
 }

@@ -8,6 +8,4 @@ replace github.com/arribada/marlin-core/common => /home/marlin/src/github.com/ar
 
 replace github.com/grandcat/zeroconf => github.com/arribada/zeroconf v1.0.1-0.20210324085928-a9974948b214
 
-replace github.com/nareix/joy5 => github.com/arribada/joy5 v0.0.0-20210113093624-f5728ad0ac71
-
 require github.com/arribada/marlin-core/collector v0.0.0-00010101000000-000000000000

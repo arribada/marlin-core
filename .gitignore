@@ -42,6 +42,7 @@ dosfstools/fsck.fat
 dosfstools/fatlabel
 dosfstools/mkfs.fat
 ffprobe/ffprobe
+ffprobe/ffmpeg
 captain/mycaptain
 button/mybutton
 core/myi360

@@ -115,7 +115,8 @@
 		},
 		"github.com/arribada/marlin-core/collector/cmd/collect": {
 			"ExtraFilePaths": {
-				"/usr/local/bin/ffprobe": "/home/marlin/src/github.com/arribada/marlin-core/ffprobe/ffprobe"
+				"/usr/local/bin/ffprobe": "/home/marlin/src/github.com/arribada/marlin-core/ffprobe/ffprobe",
+				"/usr/local/bin/ffmpeg": "/home/marlin/src/github.com/arribada/marlin-core/ffprobe/ffmpeg"
 			},
 			"WaitForClock": true,
 			"Environment": [
@@ -127,7 +128,7 @@
 			"CommandLineFlags": [
 				"-host=:7140",
 				"-captain=localhost:7143",
-				"-video=false",
+				"-video=true",
 				"-gps_device=/dev/ttyACM0"
 			]
 		},

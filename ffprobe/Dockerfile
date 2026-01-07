@@ -15,3 +15,4 @@ RUN tar xf ffmpeg-release-arm64-static.tar.xz
 # docker build --target copier --output=. .
 FROM scratch AS copier
 COPY --from=builder /tmp/ffmpeg-7.0.2-arm64-static/ffprobe /
+COPY --from=builder /tmp/ffmpeg-7.0.2-arm64-static/ffmpeg /

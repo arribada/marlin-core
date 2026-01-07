@@ -94,7 +94,7 @@ func main() {
 		// Video RTSP recorder.
 		if cfg.VideorRTSP.Enabled {
 			theChans.VideoCtrl = make(chan bool)
-			vid, err := rtsp.New(lgr, cfg.VideorRTSP, theChans.VideoCtrl)
+			vid, err := rtsp.New(cfg.VideorRTSP, theChans.VideoCtrl)
 			if err != nil {
 				log.Fatalf("while initializing videor recorder: %v", err)
 			}

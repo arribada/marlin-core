@@ -28,6 +28,7 @@ var (
 	flagVideoEnabled       bool
 	flagVideoDevice        string
 	flagVideoSplitDuration string
+	flagVideoRecDuration   string
 
 	flagWatcherEnabled bool
 	flagAzureConn      string
@@ -40,7 +41,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&flagDataDir, "outdir", "/perm/marlin", "output data directory")
+	flag.StringVar(&flagDataDir, "datadir", "/perm/marlin", "output data directory")
 	flag.BoolVar(&flagVerbose, "v", true, "be verbose")
 
 	flag.StringVar(&flagCaptain, "captain", "localhost:7143", "where to reach the captain. ignore captain if empty.")
@@ -54,6 +55,7 @@ func init() {
 	flag.BoolVar(&flagVideoEnabled, "video", true, "enable Video capture")
 	flag.StringVar(&flagVideoDevice, "video_device", "", "Video capture device. Overriden by VIDEO_DEVICE env var.")
 	flag.StringVar(&flagVideoSplitDuration, "video_split", "10m", "Video split duration")
+	flag.StringVar(&flagVideoRecDuration, "video_max", "-1s", "How long to record video for. Negative value means forever.")
 
 	flag.BoolVar(&flagWatcherEnabled, "watcher", true, "enable data watcher")
 	flag.StringVar(&flagAzureConn, "azure_conn", "", "Azure connection string. No uploading if empty.")
@@ -98,7 +100,11 @@ func parseVideo() (*rtsp.Config, error) {
 	if vidDev := os.Getenv("VIDEO_DEVICE"); vidDev != "" {
 		flagVideoDevice = vidDev
 	}
-	d, err := time.ParseDuration(flagVideoSplitDuration)
+	split, err := time.ParseDuration(flagVideoSplitDuration)
+	if err != nil {
+		return nil, err
+	}
+	rec, err := time.ParseDuration(flagVideoRecDuration)
 	if err != nil {
 		return nil, err
 	}
@@ -107,9 +113,9 @@ func parseVideo() (*rtsp.Config, error) {
 		Verbose:       flagVerbose,
 		DataDir:       flagDataDir,
 		CaptureDevice: flagVideoDevice,
-		SplitDuration: d,
+		SplitDuration: split,
 		// Continuous recording by default.
-		RecTimeout: time.Duration(-1),
+		RecTimeout: rec,
 	}, nil
 }
 
