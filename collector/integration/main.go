@@ -19,7 +19,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/fileerror"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share"
-	"github.com/arribada/marlin-core/collector/pkg/node/watcher"
+	"github.com/arribada/marlin-core/collector/pkg/watcher"
 )
 
 var rootDir = "/perm/tests/"

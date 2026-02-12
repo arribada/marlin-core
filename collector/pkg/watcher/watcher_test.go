@@ -15,7 +15,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/directory"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/fileerror"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share"
-	"github.com/arribada/marlin-core/common/pkg/datatype"
+	"github.com/arribada/marlin-common/pkg/datatype"
 )
 
 func TestArchiveFile(t *testing.T) {

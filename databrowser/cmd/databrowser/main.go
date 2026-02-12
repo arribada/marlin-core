@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/arribada/marlin-core/common/pkg/utils"
+	"github.com/arribada/marlin-common/pkg/utils"
 	"github.com/mpl/basicauth"
 )
 

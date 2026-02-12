@@ -49,9 +49,9 @@ func TestGenRawData(t *testing.T) {
 	tm := time.Now()
 	lat := 45.6789
 	long := 123.4567
-	buf, _ := genRawDataHex(lat, long, tm, LDA2Size)
+	buf, _ := GenRawDataHex(lat, long, tm, LDA2Size)
 
-	lat2, long2, tm2, err := decodeRawDataHex(buf)
+	lat2, long2, tm2, err := DecodeRawDataHex(buf)
 	if err != nil {
 		t.Fatal(err)
 	}

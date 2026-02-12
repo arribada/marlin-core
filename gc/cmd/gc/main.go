@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/arribada/marlin-core/common/pkg/utils"
+	"github.com/arribada/marlin-common/pkg/utils"
 	"github.com/arribada/marlin-core/gc/pkg/gc"
 )
 

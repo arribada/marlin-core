@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"math"
 	"time"
 )
@@ -19,14 +18,10 @@ type Alert struct {
 }
 
 const (
-	latWidth      = 4
-	longWidth     = 5
-	rawDataLength = 24
+	latWidth  = 4
+	longWidth = 5
+	LDA2Size  = 24 // LDA2 is 196 bits, but 192 bits is ok too.
 )
-
-func AlertToBytes(alert Alert) ([]byte, error) {
-	return GenRawData(alert.Latitude, alert.Longitude, alert.Time, LDA2Size)
-}
 
 // TODO: use encoding/gob instead? We could even do it directly on a struct type that contains all three fields.
 // 5 bytes for longitude
@@ -55,7 +50,7 @@ func GenRawData(lat, long float64, t time.Time, bufSize int) ([]byte, error) {
 	return buf, nil
 }
 
-func genRawDataHex(lat, long float64, t time.Time, bufSize int) ([]byte, error) {
+func GenRawDataHex(lat, long float64, t time.Time, bufSize int) ([]byte, error) {
 	buf, err := GenRawData(lat, long, t, bufSize)
 	if err != nil {
 		return nil, err
@@ -90,7 +85,9 @@ func encodeAsBytes(f float64, width int) []byte {
 }
 
 func DecodeRawData(buf []byte) (float64, float64, time.Time, error) {
-	// TODO: sad we have to allocate to do the decoding. But needed to avoid panicking of stdlib. We should recode it ourselves.
+	// TODO: sad we have to allocate to do the decoding. But needed to
+	// avoid panicking of stdlib. We should recode it ourselves.
+
 	latBuf := make([]byte, 8)
 	copy(latBuf, buf[:latWidth])
 	lat := decodeRaw(latBuf)
@@ -115,7 +112,7 @@ func DecodeRawData(buf []byte) (float64, float64, time.Time, error) {
 	return lat, long, tm, nil
 }
 
-func decodeRawDataHex(buf []byte) (float64, float64, time.Time, error) {
+func DecodeRawDataHex(buf []byte) (float64, float64, time.Time, error) {
 	asDecimal := make([]byte, len(buf)/2)
 	if _, err := hex.Decode(asDecimal, buf); err != nil {
 		return 0, 0, time.Time{}, err
@@ -129,25 +126,14 @@ func decodeRaw(buf []byte) float64 {
 	return asFloat
 }
 
-func SendAlert(alert Alert) error {
-	log.Printf("Sending Alert for position (%f, %f) at %v", alert.Latitude, alert.Longitude, alert.Time)
-
-	data, err := AlertToBytes(alert)
-	if err != nil {
-		return fmt.Errorf("while packing alert as bytes stream: %v", err)
+func printBits(b byte) {
+	var bits = make([]byte, 8)
+	mask := byte(1)
+	for i := len(bits) - 1; i >= 0; i-- {
+		bits[i] = b & mask
+		b = b >> 1
 	}
-
-	/*
-		// TODO: remove
-		lat, long, t, err := DecodeRawData(data)
-		if err != nil {
-			return err
-		}
-		log.Printf("alert in stream: %f, %f, %v", lat, long, t)
-	*/
-
-	if err := sendTX(data); err != nil {
-		return fmt.Errorf("while sending alert: %v", err)
+	for _, v := range bits {
+		fmt.Printf("%d ", v)
 	}
-	return nil
 }

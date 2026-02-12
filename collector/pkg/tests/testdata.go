@@ -5,13 +5,14 @@ package tests
 
 import (
 	"github.com/adrianmo/go-nmea"
-	"github.com/arribada/marlin-core/collector/pkg/node/gpsr"
+
+	"github.com/arribada/marlin-common/pkg/datatype"
 )
 
-var SRMCp = []gpsr.SRMCplus{
+var SRMCp = []datatype.SRMCplus{
 	{
 		HDOP: 0.1,
-		SRMC: gpsr.SRMC{
+		SRMC: datatype.SRMC{
 			Time: nmea.Time{
 				Hour:        16,
 				Minute:      19,
@@ -31,7 +32,7 @@ var SRMCp = []gpsr.SRMCplus{
 	},
 	{
 		HDOP: 0.2,
-		SRMC: gpsr.SRMC{
+		SRMC: datatype.SRMC{
 			Time: nmea.Time{
 				Hour:        17,
 				Minute:      19,
@@ -52,7 +53,7 @@ var SRMCp = []gpsr.SRMCplus{
 	// we're "fully stopped" now.
 	{
 		HDOP: 0.3,
-		SRMC: gpsr.SRMC{
+		SRMC: datatype.SRMC{
 			Time: nmea.Time{
 				Hour:        18,
 				Minute:      19,
@@ -73,7 +74,7 @@ var SRMCp = []gpsr.SRMCplus{
 	// We've started moving again, but index is still somewhat high.
 	{
 		HDOP: 0.4,
-		SRMC: gpsr.SRMC{
+		SRMC: datatype.SRMC{
 			Time: nmea.Time{
 				Hour:        19,
 				Minute:      19,
@@ -93,7 +94,7 @@ var SRMCp = []gpsr.SRMCplus{
 	},
 	{
 		HDOP: 0.5,
-		SRMC: gpsr.SRMC{
+		SRMC: datatype.SRMC{
 			Time: nmea.Time{
 				Hour:        20,
 				Minute:      19,

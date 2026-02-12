@@ -16,7 +16,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/fileerror"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share"
-	"github.com/arribada/marlin-core/common/pkg/datatype"
+	"github.com/arribada/marlin-common/pkg/datatype"
 	"golang.org/x/sys/unix"
 )
 

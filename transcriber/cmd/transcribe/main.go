@@ -23,9 +23,8 @@ import (
 	"sync"
 	"time"
 
-	//	"github.com/arribada/marlin-core-common/pkg/common"
-	"github.com/arribada/marlin-core/common/pkg/datatype"
-	"github.com/arribada/marlin-core/common/pkg/utils"
+	"github.com/arribada/marlin-common/pkg/datatype"
+	"github.com/arribada/marlin-common/pkg/utils"
 
 	"github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
 	"github.com/go-audio/audio"
@@ -353,12 +352,6 @@ type smpls struct {
 	asFloats []float32
 }
 
-type Segment struct {
-	Start time.Duration
-	End   time.Duration
-	Text  string
-}
-
 func runTranscriber(ctx context.Context) {
 	for {
 		var samples smpls
@@ -419,7 +412,7 @@ func runTranscriber(ctx context.Context) {
 	}
 }
 
-func transcribe(samples []float32) ([]Segment, error) {
+func transcribe(samples []float32) ([]datatype.Segment, error) {
 	if len(samples) == 0 {
 		return nil, noSamplesErr
 	}
@@ -435,7 +428,7 @@ func transcribe(samples []float32) ([]Segment, error) {
 		return nil, err
 	}
 
-	var segments []Segment
+	var segments []datatype.Segment
 	for {
 		segment, err := context.NextSegment()
 		if err != nil {
@@ -450,7 +443,7 @@ func transcribe(samples []float32) ([]Segment, error) {
 				continue
 			}
 		}
-		segments = append(segments, Segment{
+		segments = append(segments, datatype.Segment{
 			Start: segment.Start,
 			End:   segment.End,
 			Text:  segment.Text,
@@ -459,13 +452,13 @@ func transcribe(samples []float32) ([]Segment, error) {
 	return segments, nil
 }
 
-func writeSegments(segments []Segment) {
+func writeSegments(segments []datatype.Segment) {
 	for _, v := range segments {
 		fmt.Printf("[%6s->%6s] %s\n", v.Start, v.End, v.Text)
 	}
 }
 
-func writeSTTFile(timeStamp time.Time, segments []Segment) error {
+func writeSTTFile(timeStamp time.Time, segments []datatype.Segment) error {
 	// write in a temp dir, because we want to finish with a rename in the fsnotify
 	// watched dir.
 	tmpDir := filepath.Join(flagOutDir, datatype.TmpDirName)

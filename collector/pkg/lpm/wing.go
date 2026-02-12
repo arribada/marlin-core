@@ -1,7 +1,7 @@
 // Copyright (c) The Arribada initiative.
 // Licensed under the GPLv3 License.
 
-package sat
+package lpm
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/arribada/marlin-core/collector/pkg/sat/pb"
+	"github.com/arribada/marlin-core/collector/pkg/lpm/pb"
 
 	"go.bug.st/serial"
 	"google.golang.org/protobuf/proto"

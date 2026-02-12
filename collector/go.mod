@@ -5,9 +5,9 @@ go 1.24.0
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azfile v1.3.0
 	github.com/adrianmo/go-nmea v1.10.0
-	github.com/arribada/marlin-core/common v0.1.0
 	github.com/bluenviron/gortsplib/v5 v5.2.2
 	github.com/bluenviron/mediacommon/v2 v2.6.0
+	github.com/arribada/marlin-common v0.1.0
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-kit/kit v0.10.0
 	github.com/mpl/basicauth v0.0.0-20250721104714-3b2305e49960
@@ -42,7 +42,7 @@ require (
 )
 
 replace (
-	github.com/arribada/marlin-core/common => ../common
+	github.com/arribada/marlin-common => ../marlin-common
 	github.com/grandcat/zeroconf => github.com/arribada/zeroconf v1.0.1-0.20210324085928-a9974948b214
 	github.com/nareix/joy5 => github.com/arribada/joy5 v0.0.0-20210113093624-f5728ad0ac71
 )

@@ -18,10 +18,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/arribada/marlin-common/pkg/datatype"
+	"github.com/arribada/marlin-common/pkg/sat"
 	"github.com/arribada/marlin-core/collector/pkg/logger"
-	"github.com/arribada/marlin-core/collector/pkg/sat"
+	"github.com/arribada/marlin-core/collector/pkg/lpm"
 	"github.com/arribada/marlin-core/collector/pkg/types"
-	"github.com/arribada/marlin-core/common/pkg/datatype"
 	"golang.org/x/sys/unix"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/directory"
@@ -188,7 +189,7 @@ func (ew *EventsWatcher) trackButtonPresses() {
 					log.Printf("timed out on requesting GPS position for alert. Proceeding without a position.")
 				}
 
-				if err := sat.SendAlert(sat.Alert{
+				if err := lpm.SendAlert(sat.Alert{
 					Time:      now,
 					Latitude:  latestPos.Latitude,
 					Longitude: latestPos.Longitude,

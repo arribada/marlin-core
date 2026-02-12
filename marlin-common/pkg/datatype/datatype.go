@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/adrianmo/go-nmea"
 )
 
 func init() {
@@ -188,4 +190,95 @@ func ArchivedPath(dataType int, t time.Time) (string, string, error) {
 	name := fmt.Sprintf("%s-%s.%s", prefix, dayTime, ext)
 
 	return dirName, name, nil
+}
+
+func IsValidName(name string) (bool, time.Time, error) {
+	var t time.Time
+	parts := strings.SplitN(name, "-", 2)
+	if len(parts) != 2 {
+		return false, t, fmt.Errorf("couldn't parse prefix, invalid number of parts: %d", len(parts))
+	}
+	dt := parts[0]
+	found := false
+	for _, v := range PrefixesByType {
+		if dt == v {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return false, t, fmt.Errorf("invalid prefix in %v: %v", name, dt)
+	}
+
+	ext := filepath.Ext(name)
+	found = false
+	for _, v := range ExtByType {
+		if ext == "."+v {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return false, t, fmt.Errorf("invalid extension in %v: %v", name, ext)
+	}
+
+	date := strings.Replace(strings.TrimSuffix(strings.TrimPrefix(name, dt+"-"), ext), "_", ":", -1)
+	var err error
+	t, err = time.Parse(time.RFC3339, date)
+	if err != nil {
+		return false, t, fmt.Errorf("invalid date part in %v: %v", name, err)
+	}
+
+	return true, t.UTC(), nil
+}
+
+type Segment struct {
+	Start time.Duration
+	End   time.Duration
+	Text  string
+}
+
+// for "short" RMC, since we want to omit some of the fields of the original
+// nmea.RMC, and they don't have defined omitempty there.
+// TODO: keep it in sync with nmea.RMC with go generate or something. Or maybe
+// do something smarter directly from nmea.RMC, I dunno.
+type SRMC struct {
+	Raw       string
+	Time      nmea.Time // Time Stamp
+	Validity  string    // validity - A-ok, V-invalid
+	Latitude  float64   // Latitude
+	Longitude float64   // Longitude
+	Speed     float64   // Speed in knots
+	Course    float64   // True course
+	Date      nmea.Date // Date
+	Variation float64   // Magnetic variation
+	FFAMode   string    // FAA mode indicator (filled in NMEA 2.3 and later)
+	NavStatus string    // Nav Status (NMEA 4.1 and later)
+}
+
+type SRMCer interface {
+	Inner() SRMC
+}
+
+func (rmc SRMC) Inner() SRMC {
+	return rmc
+}
+
+type SRMCplus struct {
+	HDOP float64
+	SRMC SRMC
+}
+
+func (rmc SRMCplus) Inner() SRMC {
+	return rmc.SRMC
+}
+
+func (rmc SRMC) ToGoTime() (time.Time, error) {
+	dateString := fmt.Sprintf("20%02d-%02d-%02d", rmc.Date.YY, rmc.Date.MM, rmc.Date.DD)
+
+	seconds := float64(rmc.Time.Second) + float64(rmc.Time.Millisecond)/1000
+	timeString := fmt.Sprintf("%02d:%02d:%012.9f", rmc.Time.Hour, rmc.Time.Minute, seconds)
+
+	s := fmt.Sprintf("%sT%sZ", dateString, timeString)
+	return time.Parse(time.RFC3339Nano, s)
 }

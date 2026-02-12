@@ -43,8 +43,8 @@ COPY ./cellular .
 WORKDIR /home/marlin/src/github.com/arribada/marlin-core/gateway
 COPY ./gateway .
 
-WORKDIR /home/marlin/src/github.com/arribada/marlin-core/common
-COPY ./common .
+WORKDIR /home/marlin/src/github.com/arribada/marlin-core/marlin-common
+COPY ./marlin-common .
 
 WORKDIR /home/marlin/src/github.com/arribada/marlin-core/gengps
 COPY ./gengps .

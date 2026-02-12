@@ -9,8 +9,8 @@ build:
 	@mkdir -p bin
 	@go build -o bin/collect ./cmd/collect
 
-.PHONY: protoc
-protoc: ## Generate protobuf for comms with LPM.
-protoc:
+.PHONY: lpmproto
+lpmproto: ## Generate protobuf for comms with LPM.
+lpmproto:
 	@echo ">> Running protoc"
-	@protoc -I=./pkg/sat/ --go_out=./pkg/sat ./pkg/sat/proto/core.proto
+	@protoc -I=./pkg/lpm/ --go_out=./pkg/lpm ./pkg/lpm/proto/core.proto

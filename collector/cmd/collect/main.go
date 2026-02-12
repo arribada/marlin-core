@@ -13,16 +13,16 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/arribada/marlin-common/pkg/utils"
 	"github.com/arribada/marlin-core/collector/pkg/config"
 	"github.com/arribada/marlin-core/collector/pkg/controller"
 	"github.com/arribada/marlin-core/collector/pkg/gui"
 	"github.com/arribada/marlin-core/collector/pkg/logger"
+	"github.com/arribada/marlin-core/collector/pkg/lpm"
 	"github.com/arribada/marlin-core/collector/pkg/node/gpsr"
 	"github.com/arribada/marlin-core/collector/pkg/node/videor/rtsp"
-	"github.com/arribada/marlin-core/collector/pkg/sat"
 	"github.com/arribada/marlin-core/collector/pkg/types"
 	"github.com/arribada/marlin-core/collector/pkg/watcher"
-	"github.com/arribada/marlin-core/common/pkg/utils"
 	"github.com/mpl/basicauth"
 
 	"github.com/go-kit/kit/log/level"
@@ -51,7 +51,7 @@ func main() {
 	}
 
 	// TODO: maybe setup as a group service, like the others.
-	if err := sat.SetupWing(cfg.Sat); err != nil {
+	if err := lpm.SetupWing(cfg.Sat); err != nil {
 		log.Fatal(err)
 	}
 

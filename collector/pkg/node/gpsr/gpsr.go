@@ -17,10 +17,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/arribada/marlin-common/pkg/datatype"
+	"github.com/arribada/marlin-common/pkg/utils"
 	"github.com/arribada/marlin-core/collector/pkg/logger"
 	"github.com/arribada/marlin-core/collector/pkg/types"
-	"github.com/arribada/marlin-core/common/pkg/datatype"
-	"github.com/arribada/marlin-core/common/pkg/utils"
 
 	"github.com/adrianmo/go-nmea"
 	klog "github.com/go-kit/kit/log"
@@ -53,60 +53,15 @@ type GPSr struct {
 	// probably does not vary often. We could have a top struct that is one HDOP, and a
 	// slice of SRMCs, and we make a new one everytime the HDOP changes, but that
 	// sounds awkward...
-	rmc []SRMCplus
+	rmc []datatype.SRMCplus
 
 	latestPosMu sync.RWMutex
 	latestPos   types.Position
 	posChan     chan types.Position
 }
 
-// for "short" RMC, since we want to omit some of the fields of the original
-// nmea.RMC, and they don't have defined omitempty there.
-// TODO: keep it in sync with nmea.RMC with go generate or something. Or maybe
-// do something smarter directly from nmea.RMC, I dunno.
-type SRMC struct {
-	Raw       string
-	Time      nmea.Time // Time Stamp
-	Validity  string    // validity - A-ok, V-invalid
-	Latitude  float64   // Latitude
-	Longitude float64   // Longitude
-	Speed     float64   // Speed in knots
-	Course    float64   // True course
-	Date      nmea.Date // Date
-	Variation float64   // Magnetic variation
-	FFAMode   string    // FAA mode indicator (filled in NMEA 2.3 and later)
-	NavStatus string    // Nav Status (NMEA 4.1 and later)
-}
-
-type SRMCer interface {
-	Inner() SRMC
-}
-
-func (rmc SRMC) Inner() SRMC {
-	return rmc
-}
-
-type SRMCplus struct {
-	HDOP float64
-	SRMC SRMC
-}
-
-func (rmc SRMCplus) Inner() SRMC {
-	return rmc.SRMC
-}
-
-func (rmc SRMC) ToGoTime() (time.Time, error) {
-	dateString := fmt.Sprintf("20%02d-%02d-%02d", rmc.Date.YY, rmc.Date.MM, rmc.Date.DD)
-
-	seconds := float64(rmc.Time.Second) + float64(rmc.Time.Millisecond)/1000
-	timeString := fmt.Sprintf("%02d:%02d:%012.9f", rmc.Time.Hour, rmc.Time.Minute, seconds)
-
-	s := fmt.Sprintf("%sT%sZ", dateString, timeString)
-	return time.Parse(time.RFC3339Nano, s)
-}
-
-func trimRMC(rmc nmea.RMC) SRMC {
-	return SRMC{
+func trimRMC(rmc nmea.RMC) datatype.SRMC {
+	return datatype.SRMC{
 		Raw:       rmc.BaseSentence.Raw,
 		Time:      rmc.Time,
 		Validity:  rmc.Validity,
@@ -239,7 +194,7 @@ func (g *GPSr) record(ctx context.Context) (err error) {
 func (g *GPSr) recordWithDuration(ctx context.Context, port io.ReadCloser, timeout time.Duration) (err error) {
 	_ = level.Info(g.klogger).Log("msg", fmt.Sprintf("starting new recording for %v", timeout))
 	tm := time.NewTimer(timeout)
-	g.rmc = []SRMCplus{}
+	g.rmc = []datatype.SRMCplus{}
 
 	count := 0
 	defer func() {
@@ -363,7 +318,7 @@ func (g *GPSr) parseGPS(l string) (bool, error) {
 		return false, errors.New("message type does not match DataType (RMC)")
 	}
 	rmc := trimRMC(mrmc)
-	rmcp := SRMCplus{
+	rmcp := datatype.SRMCplus{
 		HDOP: g.dop,
 		SRMC: rmc,
 	}

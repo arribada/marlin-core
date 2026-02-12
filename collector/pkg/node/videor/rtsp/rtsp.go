@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/arribada/marlin-core/common/pkg/datatype"
+	"github.com/arribada/marlin-common/pkg/datatype"
 
 	"github.com/bluenviron/gortsplib/v5"
 	"github.com/bluenviron/gortsplib/v5/pkg/base"

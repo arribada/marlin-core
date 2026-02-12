@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/arribada/marlin-core/collector/pkg/controller"
+	"github.com/arribada/marlin-core/collector/pkg/lpm"
 	"github.com/arribada/marlin-core/collector/pkg/node/gpsr"
 	"github.com/arribada/marlin-core/collector/pkg/node/videor/rtsp"
-	"github.com/arribada/marlin-core/collector/pkg/sat"
 	"github.com/arribada/marlin-core/collector/pkg/watcher"
 )
 
@@ -76,7 +76,7 @@ func init() {
 	flag.StringVar(&flagTranscriberURL, "transcriber_url", "http://localhost:7141", "URL where to send messages for transcriber.")
 
 	flag.BoolVar(&flagSatEnabled, "sat", true, "enable Satellite comms")
-	flag.StringVar(&flagSatDevice, "sat_device", "/dev/cu.usbmodem1101", "Path to the satellite device. Typically a feather SMD wing on a serial USB port.")
+	flag.StringVar(&flagSatDevice, "sat_device", "/dev/cu.usbmodem1101", "Path to the lpm.llite device. Typically a feather SMD wing on a serial USB port.")
 	flag.StringVar(&flagSatID, "sat_id", "", "")
 	flag.StringVar(&flagSatAddr, "sat_address", "", "")
 	flag.StringVar(&flagSatSecKey, "sat_seckey", "", "")
@@ -91,7 +91,7 @@ type Config struct {
 	GPSr        gpsr.Config
 	DataWatcher watcher.Config
 	Controller  controller.Config
-	Sat         sat.Config
+	Sat         lpm.Config
 }
 
 var Default = Config{}
@@ -165,9 +165,9 @@ func parseController() (*controller.Config, error) {
 	}, nil
 }
 
-func parseSat() (*sat.Config, error) {
+func parseSat() (*lpm.Config, error) {
 	// TODO: env vars
-	return &sat.Config{
+	return &lpm.Config{
 		Enabled: flagSatEnabled,
 		Device:  flagSatDevice,
 		Verbose: flagVerbose,
