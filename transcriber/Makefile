@@ -40,6 +40,11 @@ ${LIBWHISPER}:
 	@mkdir -p bin
 	@C_INCLUDE_PATH=${WHISPER_CPP} LIBRARY_PATH=${WHISPER_CPP} go build -o ./bin/${TRANSCRIBE} ./cmd/transcribe/main.go
 
+.PHONY: tests
+tests: # low-key just test that the code builds
+tests: ${LIBWHISPER}
+	@C_INCLUDE_PATH=${WHISPER_CPP} LIBRARY_PATH=${WHISPER_CPP} go test -v ./cmd/transcribe
+
 .PHONY: prelint
 prelint: ## Prepare for linting.
 # Note: looks like just ${LIBWHISPER} (instead of build), is not enough, as it does not make whisper.h available or something.

@@ -86,7 +86,7 @@ WORKDIR /home/marlin/src/github.com/arribada/marlin-core
 COPY ./Makefile .
 
 # run all tests
-RUN make tests
+RUN make tests2
 
 FROM builder AS gengaf
 ARG instance=doesnotexist

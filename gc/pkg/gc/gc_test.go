@@ -81,7 +81,7 @@ func TestAudioGC(t *testing.T) {
 	}
 }
 
-func du(rootDir string, t *testing.T) (int64, error) {
+func du(rootDir string) (int64, error) {
 	cmd := exec.Command("du", "-sc", rootDir)
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
@@ -108,7 +108,7 @@ func du(rootDir string, t *testing.T) (int64, error) {
 }
 
 func mockWantSpace(rootDir string, total int64, threshold float64, t *testing.T) (bool, float64) {
-	used, err := du(rootDir, t)
+	used, err := du(rootDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -346,7 +346,7 @@ const (
 
 var connString string
 
-func shareCl(t *testing.T) (*share.Client, error) {
+func shareCl() (*share.Client, error) {
 	connString = os.Getenv("AZURE_CONN")
 	if connString == "" {
 		return nil, fmt.Errorf("Azure connection string not specified")
@@ -365,7 +365,7 @@ func testRestoreAll(t *testing.T) {
 	if err := defaultRestore(backupDir, rootDir); err != nil {
 		t.Fatal(err)
 	}
-	azShareCl, err := shareCl(t)
+	azShareCl, err := shareCl()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,8 +393,11 @@ func TestGC(t *testing.T) {
 
 	defaultAgeLimit := 31 * 24 * time.Hour
 
-	azShareCl, err := shareCl(t)
+	azShareCl, err := shareCl()
 	if err != nil {
+		if err.Error() == "Azure connection string not specified" {
+			t.Skip(err.Error())
+		}
 		t.Fatal(err)
 	}
 
@@ -470,7 +473,7 @@ func TestGC(t *testing.T) {
 				return nil
 			},
 			assert: func(t *testing.T, total int64, threshold float64) error {
-				gotUsed, err := du(rootDir, t)
+				gotUsed, err := du(rootDir)
 				if err != nil {
 					return err
 				}
@@ -526,7 +529,7 @@ func TestGC(t *testing.T) {
 				return removeAzFiles(azShareCl, rootDir, "2025-01")
 			},
 			assert: func(t *testing.T, total int64, threshold float64) error {
-				gotUsed, err := du(rootDir, t)
+				gotUsed, err := du(rootDir)
 				if err != nil {
 					return err
 				}
@@ -619,7 +622,7 @@ func TestGC(t *testing.T) {
 				return time.Now().Sub(boundary)
 			}(),
 			assert: func(t *testing.T, total int64, threshold float64) error {
-				gotUsed, err := du(rootDir, t)
+				gotUsed, err := du(rootDir)
 				if err != nil {
 					return err
 				}
@@ -700,7 +703,7 @@ func TestGC(t *testing.T) {
 				t.Fatalf("%d: %v", k, err)
 			}
 
-			n, err := du(rootDir, t)
+			n, err := du(rootDir)
 			if err != nil {
 				t.Fatal(err)
 			}

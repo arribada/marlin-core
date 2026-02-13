@@ -89,11 +89,13 @@ func main() {
 	}
 
 	var err error
-	//	audioSource, err = common.MResolve(flagSource)
+	/*
+		audioSource, err = common.MResolve(flagSource)
+		if err != nil {
+			log.Fatal(err)
+		}
+	*/
 	audioSource = flagSource
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	// Starting start/stop server
 	if flagHost != "" {

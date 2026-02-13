@@ -30,6 +30,11 @@ sbom: ## generate sbom
 sbom: fsck ffprobe validinstance
 	@docker build --progress=plain -f Dockerfile --build-arg gitcreds=${GITCREDS} --build-arg instance=${INSTANCE} --build-arg GOPROXY=${GOPROXY} --target sbom --output=. .
 
+.PHONY: tests
+tests: ## run tests in docker
+tests:
+	@docker build --progress=plain -f Dockerfile --build-arg gitcreds=${GITCREDS} --build-arg instance="marlin-augnat1" --build-arg GOPROXY=${GOPROXY} --target sbom --output=. .
+
 .PHONY: update
 update: ## push update to GUS server
 update: validinstance
@@ -69,11 +74,14 @@ athens:
 
 ### the recipes below are the ones for when we are already within docker, so they are called from within the Dockerfile ###
 
-.PHONY: tests
-tests: # run all tests
-tests:
-	@cd collector && go test ./...
-	@cd transcriber && go test ./...
+.PHONY: tests2
+tests2: # run all tests
+tests2:
+	@cd collector && go test -v ./...
+	@cd databrowser && go test -v ./...
+	@cd gc && go test -v ./...
+	@cd marlin-common && go test -v ./...
+	@cd transcriber && make tests
 
 .PHONY: gaf2
 gaf2: ## create gaf for ingestion
