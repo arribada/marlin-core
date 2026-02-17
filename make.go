@@ -37,6 +37,7 @@ var (
 		"marlin-augnat2",
 		"marlin-augnat3",
 		"marlin-captain-al",
+		"marlin-crab",
 	}
 	vessels []string
 )

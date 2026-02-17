@@ -1,0 +1,60 @@
+{
+	"Hostname": "marlin-crab",
+	"Update": {
+		"HTTPPassword": "iddadidkfq"
+	},
+	"Environment": [
+		"GOOS=linux",
+		"GOARCH=arm64"
+	],
+	"Packages": [
+		"github.com/gokrazy/serial-busybox",
+		"tailscale.com/cmd/tailscaled",
+		"tailscale.com/cmd/tailscale",
+		"github.com/gokrazy/mkfs",
+		"github.com/gokrazy/wifi",
+		"github.com/gokrazy/selfupdate"
+	],
+	"PackageConfig": {
+		"github.com/gokrazy/gokrazy/cmd/randomd": {
+			"ExtraFileContents": {
+				"/etc/machine-id": "70851ae87ef94d04977a9225a41b876e\n"
+			}
+		},
+		"github.com/gokrazy/gokrazy/cmd/heartbeat": {
+			"CommandLineFlags": [
+				"--gus_server=http://100.120.76.35:8655"
+			]
+		},
+		"github.com/gokrazy/gokrazy/cmd/ntp": {
+			"CommandLineFlags": [
+				"0.pool.ntp.org",
+				"1.pool.ntp.org",
+				"2.pool.ntp.org",
+				"3.pool.ntp.org"
+			]
+		},
+		"github.com/gokrazy/selfupdate": {
+			"CommandLineFlags": [
+				"--gus_server=http://100.120.76.35:8655",
+				"--check_frequency=30s"
+			]
+		},
+		"github.com/gokrazy/wifi": {
+			"ExtraFilePaths": {
+				"/etc/wifi.json": "wifi.json"
+			}
+		},
+		"tailscale.com/cmd/tailscale": {
+			"CommandLineFlags": [
+				"up",
+				"--auth-key=file:/etc/ts.key"
+			],
+			"ExtraFilePaths": {
+				"/etc/ts.key": "ts.key"
+			}
+		}
+	},
+	"SerialConsole": "disabled",
+	"InternalCompatibilityFlags": {}
+}
