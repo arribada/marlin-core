@@ -361,6 +361,7 @@ func shareCl() (*share.Client, error) {
 
 // This is not an actual test, but a brute-force way to restore all
 // the files (both local and on Azure) for the TestGC.
+// TODO: use azcopy instead?
 func testRestoreAll(t *testing.T) {
 	if err := defaultRestore(backupDir, rootDir); err != nil {
 		t.Fatal(err)
@@ -383,7 +384,7 @@ func TestGC(t *testing.T) {
 	}
 	allExpectedFiles := (7*31 + 28 + 4*30) * filesPerDay
 	if foundFiles != allExpectedFiles {
-		t.Fatalf("rootDir not populated; found %d files, expected %d files. Please populate manually with ../collector/integration/main.go -populate", foundFiles, allExpectedFiles)
+		t.Fatalf("rootDir not populated; found %d files, expected %d files. Please populate manually with ../collector/integration/main.go -populate or with testRestoreAll. TODO: use azcopy instead?", foundFiles, allExpectedFiles)
 	}
 
 	// our first backup is the inverse of a restore

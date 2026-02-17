@@ -6,14 +6,18 @@ package lpm
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/arribada/marlin-core/collector/pkg/lpm/pb"
 
 	"go.bug.st/serial"
+	"go.bug.st/serial/enumerator"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -21,11 +25,12 @@ type Config struct {
 	Enabled bool
 	Verbose bool
 
-	Device string
-	ID     string
-	Addr   string
-	SecKey string
-	Rconf  string
+	Device   string
+	DeviceID string
+	ID       string
+	Addr     string
+	SecKey   string
+	Rconf    string
 }
 
 const (
@@ -50,14 +55,21 @@ type WingParams struct {
 	Rconf  string
 }
 
-func SetupWing(cfg Config) error {
+// TODO: make sat errors non critical to the rest of the collector?
+func Run(cfg Config, ctx context.Context) error {
 	if !cfg.Enabled {
 		return nil
 	}
-	if initialized {
-		return nil
+
+	if cfg.Device == "" {
+		dev, err := findSerialUSBDevice(cfg.DeviceID, true)
+		if err != nil {
+			return fmt.Errorf("while trying to automatically find LPM device: %v", err)
+		}
+		cfg.Device = dev
 	}
 
+	log.Printf("LPM device: %v", cfg.Device)
 	rcvd = make(map[uint32]pb.LpmReply_Response)
 	var err error
 	port, err = serial.Open(cfg.Device,
@@ -67,30 +79,59 @@ func SetupWing(cfg Config) error {
 	if err != nil {
 		return fmt.Errorf("while opening LPM as serial device: %v", err)
 	}
-	/*
-		defer func() {
-			if err := port.Close(); err != nil {
-				log.Printf("while closing capturing device: %v", err)
-			}
-		}()
-	*/
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	defer func() {
+		if err := port.Close(); err != nil {
+			log.Printf("while closing serial connection to LPM: %v", err)
+		}
+	}()
 
-	// TODO: proper termination by context
+	if !initialized {
+		initRetry(cfg, ctx)
+	}
+
 	go getReplies(ctx)
 
-	if err := initSMD(WingParams{
-		ID:     cfg.ID,
-		SecKey: cfg.SecKey,
-		Addr:   cfg.Addr,
-		Rconf:  cfg.Rconf,
-	}); err != nil {
-		return fmt.Errorf("while setting up SMD: %v", err)
-	}
-	initialized = true
+	<-ctx.Done()
 	return nil
+}
+
+// coping mechanism for the fact that one time out of two, first message ends up in failure.
+// TODO: investigate why.
+func initRetry(cfg Config, ctx context.Context) {
+	pause := time.Second
+	maxPause := 5 * time.Minute
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		go getReply()
+		time.Sleep(time.Second)
+		err := initSMD(WingParams{
+			ID:     cfg.ID,
+			SecKey: cfg.SecKey,
+			Addr:   cfg.Addr,
+			Rconf:  cfg.Rconf,
+		})
+		if err == nil {
+			initialized = true
+			return
+		}
+		log.Printf("sat comms: while setting up SMD: %v", err)
+		log.Printf("sat comms: retrying in %v", pause)
+		time.Sleep(pause)
+		pause *= 2
+		if pause > maxPause {
+			pause = maxPause
+		}
+	}
+}
+
+func Stop(cancel context.CancelFunc) {
+	log.Printf("sat comms stopped")
+	cancel()
 }
 
 func wingParamsMessage(params WingParams) *pb.CoreMessage {
@@ -110,27 +151,6 @@ func wingParamsMessage(params WingParams) *pb.CoreMessage {
 }
 
 func initSMD(params WingParams) error {
-	// TODO: remove
-	old := false
-	if old {
-		var atInitCmds = []string{
-			"AT+FW=?",
-			"AT+ID=291886",
-			"AT+ID=?",
-			"AT+ADDR=005A9F10",
-			"AT+ADDR=?",
-			"AT+SECKEY=F179706C2BD09B5B4D15E69CE212019F",
-			"AT+SECKEY=?",
-			"AT+RCONF=2c93600d6be3bac0ccfe9047c02c058e", // means LDA2 , so 24 bytes (or lower 2 mupltiples) TX.
-			"AT+KMAC=1",
-		}
-		for _, v := range atInitCmds {
-			if err := sendSatMessage(v); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
 	wingParamsMsg := wingParamsMessage(params)
 	id := msgID
 	msgID++
@@ -231,30 +251,73 @@ func getReplies(ctx context.Context) {
 			return
 		default:
 		}
-		p := make([]byte, 1024)
-		n, err := port.Read(p)
-		if err != nil {
-			log.Printf("while reading reply: %v", err)
+		if err := getReply(); err != nil {
+			log.Printf("%v", err)
 			continue
 		}
-		println("reply size", n)
-		if n == 0 {
-			continue
-		}
-		data := p[:n]
-		for _, v := range data {
-			fmt.Printf("%x ", v)
-		}
-
-		var reply pb.LpmReply
-		if err := proto.Unmarshal(data, &reply); err != nil {
-			log.Printf("while decoding message: %v", err)
-			continue
-		}
-		fmt.Println("REPLY: ", reply)
-
-		rcvdMu.Lock()
-		rcvd[reply.MsgId] = reply.Response
-		rcvdMu.Unlock()
 	}
+}
+
+func getReply() error {
+	// TODO: do not allocate everytime?
+	p := make([]byte, 1024)
+	n, err := port.Read(p)
+	if err != nil {
+		return fmt.Errorf("sat comms: while reading reply: %v", err)
+	}
+	if n == 0 {
+		return fmt.Errorf("sat comms: empty reply")
+	}
+	data := p[:n]
+	for _, v := range data {
+		fmt.Printf("%x ", v)
+	}
+
+	var reply pb.LpmReply
+	if err := proto.Unmarshal(data, &reply); err != nil {
+		return fmt.Errorf("sat comms: while decoding message: %v", err)
+	}
+	fmt.Println("REPLY: ", reply)
+
+	rcvdMu.Lock()
+	rcvd[reply.MsgId] = reply.Response
+	rcvdMu.Unlock()
+	return nil
+}
+
+// TODO: duplicated in pkg/node/gpsr. refactor.
+func findSerialUSBDevice(satDeviceID string, isLPM bool) (string, error) {
+	if satDeviceID == "" {
+		return "", errors.New("-sat_device_id not specified")
+	}
+	satDeviceID = strings.ToLower(satDeviceID)
+	ports, err := enumerator.GetDetailedPortsList()
+	if err != nil {
+		return "", fmt.Errorf("while enumerating USB serial ports: %v", err)
+	}
+	if len(ports) == 0 {
+		return "", fmt.Errorf("no serial USB port found")
+	}
+	var wantPort string
+	if runtime.GOOS == "darwin" {
+		wantPort = "/dev/cu.usbmodem"
+	} else {
+		wantPort = "/dev/ttyACM"
+	}
+	for _, port := range ports {
+		if !strings.HasPrefix(port.Name, wantPort) {
+			continue
+		}
+		id := strings.ToLower(fmt.Sprintf("%s:%s", port.VID, port.PID))
+		if isLPM {
+			if id == satDeviceID {
+				return port.Name, nil
+			}
+		} else {
+			if id != satDeviceID {
+				return port.Name, nil
+			}
+		}
+	}
+	return "", errors.New("no suitable device found")
 }

@@ -5,7 +5,6 @@ package watcher
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,7 +12,6 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/directory"
-	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/fileerror"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share"
 	"github.com/arribada/marlin-common/pkg/datatype"
 )
@@ -153,14 +151,18 @@ func deleteShareContents(connString, shareName string) error {
 	if err != nil {
 		return err
 	}
-	_, err = cl.Create(context.TODO(), nil)
-	if err == nil {
-		// did not exist yet, no need to cleanup
-		return nil
-	}
-	if !fileerror.HasCode(err, fileerror.ShareAlreadyExists) {
-		return fmt.Errorf("Azure share creation failed: %v", err)
-	}
+
+	// TODO: fix that, because we're doing per share SAS now, and so we're not allowed to create/delete a share.
+	/*
+		_, err = cl.Create(context.TODO(), nil)
+		if err == nil {
+			// did not exist yet, no need to cleanup
+			return nil
+		}
+		if !fileerror.HasCode(err, fileerror.ShareAlreadyExists) {
+			return fmt.Errorf("Azure share creation failed: %v", err)
+		}
+	*/
 
 	// already exists, need to cleanup
 

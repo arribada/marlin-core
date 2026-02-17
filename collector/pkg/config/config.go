@@ -40,12 +40,13 @@ var (
 	flagHost              string
 	flagTranscriberURL    string
 
-	flagSatEnabled bool
-	flagSatDevice  string
-	flagSatID      string
-	flagSatAddr    string
-	flagSatSecKey  string
-	flagSatRconf   string
+	flagSatEnabled  bool
+	flagSatDevice   string
+	flagSatID       string
+	flagSatAddr     string
+	flagSatSecKey   string
+	flagSatRconf    string
+	flagSatDeviceID string
 )
 
 func init() {
@@ -56,7 +57,7 @@ func init() {
 	flag.StringVar(&flagReportURL, "report_url", "http://localhost:7144?report=last", "where to get the report from the databrowser.")
 
 	flag.BoolVar(&flagGPSEnabled, "gps", true, "enable GPS capture")
-	flag.StringVar(&flagGPSDevice, "gps_device", "/tmp/gps", "GPS capture device")
+	flag.StringVar(&flagGPSDevice, "gps_device", "", "GPS capture device")
 	flag.StringVar(&flagGPSSplitDuration, "gps_split", "2m", "GPS split duration")
 	// TODO: RecTimeout
 
@@ -76,11 +77,13 @@ func init() {
 	flag.StringVar(&flagTranscriberURL, "transcriber_url", "http://localhost:7141", "URL where to send messages for transcriber.")
 
 	flag.BoolVar(&flagSatEnabled, "sat", true, "enable Satellite comms")
-	flag.StringVar(&flagSatDevice, "sat_device", "/dev/cu.usbmodem1101", "Path to the lpm.llite device. Typically a feather SMD wing on a serial USB port.")
+	flag.StringVar(&flagSatDevice, "sat_device", "", "Path to the lpm device. Typically a feather SMD wing on a serial USB port.")
 	flag.StringVar(&flagSatID, "sat_id", "", "")
 	flag.StringVar(&flagSatAddr, "sat_address", "", "")
 	flag.StringVar(&flagSatSecKey, "sat_seckey", "", "")
 	flag.StringVar(&flagSatRconf, "sat_rconf", "2c93600d6be3bac0ccfe9047c02c058e", "Satellite message size. Defaults to LDA2 (192 bits).")
+	flag.StringVar(&flagSatDeviceID, "sat_device_id", "2FE3:0004", "To help automatically find sat_device, if not specified.")
+
 }
 
 type Config struct {
@@ -108,6 +111,7 @@ func parseGPS() (*gpsr.Config, error) {
 		CaptureDevice: flagGPSDevice,
 		SplitDuration: d,
 		BaudRate:      9600,
+		SatDeviceID:   flagSatDeviceID,
 	}, nil
 }
 
@@ -168,13 +172,14 @@ func parseController() (*controller.Config, error) {
 func parseSat() (*lpm.Config, error) {
 	// TODO: env vars
 	return &lpm.Config{
-		Enabled: flagSatEnabled,
-		Device:  flagSatDevice,
-		Verbose: flagVerbose,
-		ID:      flagSatID,
-		Addr:    flagSatAddr,
-		SecKey:  flagSatSecKey,
-		Rconf:   flagSatRconf,
+		Enabled:  flagSatEnabled,
+		Device:   flagSatDevice,
+		Verbose:  flagVerbose,
+		ID:       flagSatID,
+		Addr:     flagSatAddr,
+		SecKey:   flagSatSecKey,
+		Rconf:    flagSatRconf,
+		DeviceID: flagSatDeviceID,
 	}, nil
 }
 

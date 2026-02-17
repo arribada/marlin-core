@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -50,11 +51,6 @@ func main() {
 		}
 	}
 
-	// TODO: maybe setup as a group service, like the others.
-	if err := lpm.SetupWing(cfg.Sat); err != nil {
-		log.Fatal(err)
-	}
-
 	go getReport(cfg.ReportURL)
 
 	var g run.Group
@@ -63,6 +59,7 @@ func main() {
 	{
 		g.Add(run.SignalHandler(context.Background(), syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM))
 
+		// TODO: do we actually still want that??
 		// Serve our config and other utilities.
 		{
 			srv := gui.New(":8080", cfg)
@@ -76,6 +73,19 @@ func main() {
 				if err := srv.Close(); err != nil {
 					log.Printf("while closing srv: %v", err)
 				}
+			})
+		}
+
+		// Sat comms
+		if cfg.Sat.Enabled {
+			ctx, cancel := context.WithCancel(context.Background())
+			g.Add(func() error {
+				if err := lpm.Run(cfg.Sat, ctx); err != nil {
+					return fmt.Errorf("sat comms error: %v", err)
+				}
+				return nil
+			}, func(error) {
+				lpm.Stop(cancel)
 			})
 		}
 
@@ -150,6 +160,18 @@ func main() {
 				return nil
 			}, func(error) {
 				ctrl.Stop()
+			})
+		}
+
+		// error simulator for testing actors graceful termination
+		if false {
+			_, cancel := context.WithCancel(context.Background())
+			g.Add(func() error {
+				time.Sleep(time.Minute)
+				return errors.New("simulated error")
+			}, func(err error) {
+				println("error received by simulator:", err.Error())
+				cancel()
 			})
 		}
 
