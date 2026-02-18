@@ -50,11 +50,9 @@ type WingParams struct {
 	Rconf  string
 }
 
-func SetupWing(cfg Config) error {
+// TODO: make sat errors non critical to the rest of the collector?
+func Run(cfg Config, ctx context.Context) error {
 	if !cfg.Enabled {
-		return nil
-	}
-	if initialized {
 		return nil
 	}
 
@@ -67,30 +65,40 @@ func SetupWing(cfg Config) error {
 	if err != nil {
 		return fmt.Errorf("while opening LPM as serial device: %v", err)
 	}
-	/*
-		defer func() {
-			if err := port.Close(); err != nil {
-				log.Printf("while closing capturing device: %v", err)
-			}
-		}()
-	*/
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	defer func() {
+		if err := port.Close(); err != nil {
+			log.Printf("while closing serial connection to LPM: %v", err)
+		}
+	}()
 
-	// TODO: proper termination by context
 	go getReplies(ctx)
+	time.Sleep(time.Second)
 
-	if err := initSMD(WingParams{
-		ID:     cfg.ID,
-		SecKey: cfg.SecKey,
-		Addr:   cfg.Addr,
-		Rconf:  cfg.Rconf,
-	}); err != nil {
-		return fmt.Errorf("while setting up SMD: %v", err)
+	if !initialized {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+		if err := initSMD(WingParams{
+			ID:     cfg.ID,
+			SecKey: cfg.SecKey,
+			Addr:   cfg.Addr,
+			Rconf:  cfg.Rconf,
+		}); err != nil {
+			return fmt.Errorf("while setting up SMD: %v", err)
+		}
+		initialized = true
 	}
-	initialized = true
+
+	<-ctx.Done()
 	return nil
+}
+
+func Stop(cancel context.CancelFunc) {
+	log.Printf("sat comms stopped")
+	cancel()
 }
 
 func wingParamsMessage(params WingParams) *pb.CoreMessage {
@@ -110,27 +118,6 @@ func wingParamsMessage(params WingParams) *pb.CoreMessage {
 }
 
 func initSMD(params WingParams) error {
-	// TODO: remove
-	old := false
-	if old {
-		var atInitCmds = []string{
-			"AT+FW=?",
-			"AT+ID=291886",
-			"AT+ID=?",
-			"AT+ADDR=005A9F10",
-			"AT+ADDR=?",
-			"AT+SECKEY=F179706C2BD09B5B4D15E69CE212019F",
-			"AT+SECKEY=?",
-			"AT+RCONF=2c93600d6be3bac0ccfe9047c02c058e", // means LDA2 , so 24 bytes (or lower 2 mupltiples) TX.
-			"AT+KMAC=1",
-		}
-		for _, v := range atInitCmds {
-			if err := sendSatMessage(v); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
 	wingParamsMsg := wingParamsMessage(params)
 	id := msgID
 	msgID++
@@ -234,7 +221,7 @@ func getReplies(ctx context.Context) {
 		p := make([]byte, 1024)
 		n, err := port.Read(p)
 		if err != nil {
-			log.Printf("while reading reply: %v", err)
+			log.Printf("sat comms: while reading reply: %v", err)
 			continue
 		}
 		println("reply size", n)
@@ -248,7 +235,7 @@ func getReplies(ctx context.Context) {
 
 		var reply pb.LpmReply
 		if err := proto.Unmarshal(data, &reply); err != nil {
-			log.Printf("while decoding message: %v", err)
+			log.Printf("sat comms: while decoding message: %v", err)
 			continue
 		}
 		fmt.Println("REPLY: ", reply)
