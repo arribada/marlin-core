@@ -86,7 +86,13 @@
 				"-host=:7140",
 				"-captain=localhost:7143",
 				"-video=false",
-				"-gps_device=/dev/ttyACM0"
+				"-gps=true",
+				"-gps_device=/dev/ttyACM0",
+				"-sat=true",
+				"-sat_device=/dev/ttyS0",
+				"-sat_id=291885",
+				"-sat_address=005A9EBD",
+				"-sat_seckey=69B26EE789BD10109328437567F68469"
 			]
 		},
 		"github.com/arribada/marlin-core/databrowser/cmd/databrowser": {
