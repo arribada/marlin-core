@@ -129,7 +129,8 @@
 				"-host=:7140",
 				"-captain=localhost:7143",
 				"-video=true",
-				"-gps_device=/dev/ttyACM0"
+				"-gps_device=/dev/ttyACM0",
+				"-sat=false"
 			]
 		},
 		"github.com/arribada/marlin-core/databrowser/cmd/databrowser": {
