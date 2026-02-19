@@ -72,28 +72,47 @@ func Run(cfg Config, ctx context.Context) error {
 		}
 	}()
 
-	go getReplies(ctx)
-	time.Sleep(time.Second)
-
 	if !initialized {
+		initRetry(cfg, ctx)
+	}
+
+	go getReplies(ctx)
+
+	<-ctx.Done()
+	return nil
+}
+
+// coping mechanism for the fact that one time out of two, first message ends up in failure.
+// TODO: investigate why.
+func initRetry(cfg Config, ctx context.Context) {
+	pause := time.Second
+	maxPause := 5 * time.Minute
+	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return
 		default:
 		}
-		if err := initSMD(WingParams{
+		go getReply()
+		time.Sleep(time.Second)
+		err := initSMD(WingParams{
 			ID:     cfg.ID,
 			SecKey: cfg.SecKey,
 			Addr:   cfg.Addr,
 			Rconf:  cfg.Rconf,
-		}); err != nil {
-			return fmt.Errorf("while setting up SMD: %v", err)
+		})
+		if err == nil {
+			initialized = true
+			return
 		}
-		initialized = true
+		log.Printf("sat comms: while setting up SMD: %v", err)
+		log.Printf("sat comms: retrying in %v", pause)
+		time.Sleep(pause)
+		pause *= pause
+		if pause > maxPause {
+			pause = maxPause
+		}
 	}
-
-	<-ctx.Done()
-	return nil
 }
 
 func Stop(cancel context.CancelFunc) {
@@ -212,36 +231,49 @@ func satMessage(msg string) *pb.CoreMessage {
 }
 
 func getReplies(ctx context.Context) {
+	defer func() {
+		println("NOT LEAKING GETREPLIES")
+	}()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 		}
-		p := make([]byte, 1024)
-		n, err := port.Read(p)
-		if err != nil {
-			log.Printf("sat comms: while reading reply: %v", err)
+		if err := getReply(); err != nil {
+			log.Printf("%v", err)
 			continue
 		}
-		println("reply size", n)
-		if n == 0 {
-			continue
-		}
-		data := p[:n]
-		for _, v := range data {
-			fmt.Printf("%x ", v)
-		}
-
-		var reply pb.LpmReply
-		if err := proto.Unmarshal(data, &reply); err != nil {
-			log.Printf("sat comms: while decoding message: %v", err)
-			continue
-		}
-		fmt.Println("REPLY: ", reply)
-
-		rcvdMu.Lock()
-		rcvd[reply.MsgId] = reply.Response
-		rcvdMu.Unlock()
 	}
+}
+
+func getReply() error {
+	defer func() {
+		println("NOT LEAKING GETREPLY")
+	}()
+	// TODO: do not allocate everytime?
+	p := make([]byte, 1024)
+	n, err := port.Read(p)
+	if err != nil {
+		return fmt.Errorf("sat comms: while reading reply: %v", err)
+	}
+	println("reply size", n)
+	if n == 0 {
+		return fmt.Errorf("sat comms: empty reply")
+	}
+	data := p[:n]
+	for _, v := range data {
+		fmt.Printf("%x ", v)
+	}
+
+	var reply pb.LpmReply
+	if err := proto.Unmarshal(data, &reply); err != nil {
+		return fmt.Errorf("sat comms: while decoding message: %v", err)
+	}
+	fmt.Println("REPLY: ", reply)
+
+	rcvdMu.Lock()
+	rcvd[reply.MsgId] = reply.Response
+	rcvdMu.Unlock()
+	return nil
 }
