@@ -80,4 +80,12 @@
 		add marlin-augnatN to make.go
 		go run ./make.go -vessel marlin-augnatN
 		ssh marlin-augnatN && echo 127.0.0.1:514 | tee /perm/remote_syslog/target
+		# Set up the mikrotik (TODO: detailed instruction)
+		# Once subnet is chosen/set in mikrotik, make core become a TS subnet relay
+		echo 1 > /proc/sys/net/ipv4/ip_forward
+		echo 1 > /proc/sys/net/ipv4/conf/all/forwarding
+		reboot
+		tailscale set --advertise-routes=192.168.N.0/24
+		# Approve subnet in TS webUI
+		# Add grant for operator to reach said subnet
 		**********
