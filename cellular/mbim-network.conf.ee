@@ -1,0 +1,4 @@
+APN=everywhere
+APN_USER=eesecure
+APN_PASS=secure
+APN_AUTH=pap
