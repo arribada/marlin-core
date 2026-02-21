@@ -108,7 +108,7 @@ func initRetry(cfg Config, ctx context.Context) {
 		log.Printf("sat comms: while setting up SMD: %v", err)
 		log.Printf("sat comms: retrying in %v", pause)
 		time.Sleep(pause)
-		pause *= pause
+		pause *= 2
 		if pause > maxPause {
 			pause = maxPause
 		}

@@ -25,6 +25,12 @@
 		"github.com/arribada/marlin-core/gateway/cmd/gateway"
 	],
 	"PackageConfig": {
+		"github.com/gokrazy/gokrazy/cmd/dhcp": {
+			"CommandLineFlags": [
+				"-extra_route_priority=-1",
+				"-interface=eth0"
+			]
+		},
 		"github.com/gokrazy/wifi": {
 			"DontStart": true,
 			"ExtraFilePaths": {
@@ -88,10 +94,10 @@
 				"-host=:7140",
 				"-captain=localhost:7143",
 				"-video=false",
-				"-gps=true",
-				"-gps_device=/tmp/gps",
-				"-sat=false",
-				"-sat_device=/dev/ttyS0",
+				"-gps=false",
+				"-gps_device=/dev/ttyACM0",
+				"-sat=true",
+				"-sat_device=/dev/ttyACM0",
 				"-sat_id=291885",
 				"-sat_address=005A9EBD",
 				"-sat_seckey=69B26EE789BD10109328437567F68469"
@@ -118,7 +124,7 @@
 				"/usr/local/lib/mbim/libz.so.1": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/libz.so.1"
 			},
 			"CommandLineFlags": [
-				"-pin=1111",
+				"-pin=5555",
 				"-priority=-2"
 			]
 		},
