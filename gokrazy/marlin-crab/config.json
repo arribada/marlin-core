@@ -27,7 +27,7 @@
 	"PackageConfig": {
 		"github.com/gokrazy/gokrazy/cmd/dhcp": {
 			"CommandLineFlags": [
-				"-extra_route_priority=-1",
+				"-extra_route_priority=10",
 				"-interface=eth0"
 			]
 		},
@@ -81,7 +81,8 @@
 		},
 		"github.com/arribada/marlin-core/collector/cmd/collect": {
 			"ExtraFilePaths": {
-				"/usr/local/bin/ffprobe": "/home/marlin/src/github.com/arribada/marlin-core/ffprobe/ffprobe"
+				"/usr/local/bin/ffprobe": "/home/marlin/src/github.com/arribada/marlin-core/ffprobe/ffprobe",
+				"/usr/local/bin/ffmpeg": "/home/marlin/src/github.com/arribada/marlin-core/ffprobe/ffmpeg"
 			},
 			"WaitForClock": true,
 			"Environment": [
@@ -93,10 +94,11 @@
 			"CommandLineFlags": [
 				"-host=:7140",
 				"-captain=localhost:7143",
-				"-video=false",
-				"-gps=false",
-				"-gps_device=/dev/ttyACM0",
-				"-sat=true",
+				"-video=true",
+				"-video_split=5m",
+				"-gps=true",
+				"-gps_device=/tmp/gps",
+				"-sat=false",
 				"-sat_device=/dev/ttyACM0",
 				"-sat_id=291885",
 				"-sat_address=005A9EBD",
@@ -124,7 +126,7 @@
 				"/usr/local/lib/mbim/libz.so.1": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/libz.so.1"
 			},
 			"CommandLineFlags": [
-				"-pin=5555",
+				"-pin=1111",
 				"-priority=-2"
 			]
 		},
