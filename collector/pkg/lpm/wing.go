@@ -6,14 +6,18 @@ package lpm
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/arribada/marlin-core/collector/pkg/lpm/pb"
 
 	"go.bug.st/serial"
+	"go.bug.st/serial/enumerator"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -21,11 +25,12 @@ type Config struct {
 	Enabled bool
 	Verbose bool
 
-	Device string
-	ID     string
-	Addr   string
-	SecKey string
-	Rconf  string
+	Device   string
+	DeviceID string
+	ID       string
+	Addr     string
+	SecKey   string
+	Rconf    string
 }
 
 const (
@@ -56,6 +61,16 @@ func Run(cfg Config, ctx context.Context) error {
 		return nil
 	}
 
+	if cfg.Device == "" {
+		println("EMPTY LPM DEVICE")
+		dev, err := findSerialUSBDevice(cfg.DeviceID, true)
+		if err != nil {
+			return fmt.Errorf("while trying to automatically find LPM device: %v", err)
+		}
+		cfg.Device = dev
+	}
+
+	log.Printf("LPM device: %v", cfg.Device)
 	rcvd = make(map[uint32]pb.LpmReply_Response)
 	var err error
 	port, err = serial.Open(cfg.Device,
@@ -276,4 +291,39 @@ func getReply() error {
 	rcvd[reply.MsgId] = reply.Response
 	rcvdMu.Unlock()
 	return nil
+}
+
+func findSerialUSBDevice(satDeviceID string, isLPM bool) (string, error) {
+	if satDeviceID == "" {
+		return "", errors.New("-sat_device_id not specified")
+	}
+	ports, err := enumerator.GetDetailedPortsList()
+	if err != nil {
+		return "", fmt.Errorf("while enumerating USB serial ports: %v", err)
+	}
+	if len(ports) == 0 {
+		return "", fmt.Errorf("no serial USB port found")
+	}
+	var wantPort string
+	if runtime.GOOS == "darwin" {
+		wantPort = "/dev/cu.usbmodem"
+	} else {
+		wantPort = "/dev/ttyACM"
+	}
+	for _, port := range ports {
+		if !strings.HasPrefix(port.Name, wantPort) {
+			continue
+		}
+		id := fmt.Sprintf("%s:%s", port.VID, port.PID)
+		if isLPM {
+			if id == satDeviceID {
+				return port.Name, nil
+			}
+		} else {
+			if id != satDeviceID {
+				return port.Name, nil
+			}
+		}
+	}
+	return "", errors.New("no suitable device found")
 }

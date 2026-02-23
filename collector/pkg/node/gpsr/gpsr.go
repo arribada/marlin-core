@@ -13,6 +13,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +27,7 @@ import (
 	klog "github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"go.bug.st/serial"
+	"go.bug.st/serial/enumerator"
 )
 
 const ComponentName = "gps recorder"
@@ -39,6 +41,7 @@ type Config struct {
 	SplitDuration time.Duration
 	BaudRate      int
 	KeepInvalid   bool // for debugging
+	SatDeviceID   string
 }
 
 type GPSr struct {
@@ -79,7 +82,12 @@ func trimRMC(rmc nmea.RMC) datatype.SRMC {
 // TODO: remove klog
 func New(lgr klog.Logger, cfg Config, posChan chan types.Position) (*GPSr, error) {
 	if cfg.CaptureDevice == "" {
-		return nil, errors.New("no capture device was provided")
+		println("EMPTY GPS DEVICE")
+		dev, err := findSerialUSBDevice(cfg.SatDeviceID, false)
+		if err != nil {
+			return nil, fmt.Errorf("while trying to automatically find GPS device: %v", err)
+		}
+		cfg.CaptureDevice = dev
 	}
 	log.Printf("GPS capture device: %v", cfg.CaptureDevice)
 	fakeDevice := false
@@ -345,4 +353,39 @@ func (g *GPSr) parseGPS(l string) (bool, error) {
 	g.latestPos.Latitude = rmcp.SRMC.Latitude
 	g.latestPos.Longitude = rmcp.SRMC.Longitude
 	return true, nil
+}
+
+func findSerialUSBDevice(satDeviceID string, isLPM bool) (string, error) {
+	if satDeviceID == "" {
+		return "", errors.New("-sat_device_id not specified")
+	}
+	ports, err := enumerator.GetDetailedPortsList()
+	if err != nil {
+		return "", fmt.Errorf("while enumerating USB serial ports: %v", err)
+	}
+	if len(ports) == 0 {
+		return "", fmt.Errorf("no serial USB port found")
+	}
+	var wantPort string
+	if runtime.GOOS == "darwin" {
+		wantPort = "/dev/cu.usbmodem"
+	} else {
+		wantPort = "/dev/ttyACM"
+	}
+	for _, port := range ports {
+		if !strings.HasPrefix(port.Name, wantPort) {
+			continue
+		}
+		id := fmt.Sprintf("%s:%s", port.VID, port.PID)
+		if isLPM {
+			if id == satDeviceID {
+				return port.Name, nil
+			}
+		} else {
+			if id != satDeviceID {
+				return port.Name, nil
+			}
+		}
+	}
+	return "", errors.New("no suitable device found")
 }

@@ -98,7 +98,7 @@
 				"-video_split=5m",
 				"-gps=true",
 				"-gps_device=/tmp/gps",
-				"-sat=false",
+				"-sat=true",
 				"-sat_device=/dev/ttyACM0",
 				"-sat_id=291885",
 				"-sat_address=005A9EBD",
