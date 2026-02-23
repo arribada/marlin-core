@@ -359,6 +359,7 @@ func findSerialUSBDevice(satDeviceID string, isLPM bool) (string, error) {
 	if satDeviceID == "" {
 		return "", errors.New("-sat_device_id not specified")
 	}
+	satDeviceID = strings.ToLower(satDeviceID)
 	ports, err := enumerator.GetDetailedPortsList()
 	if err != nil {
 		return "", fmt.Errorf("while enumerating USB serial ports: %v", err)
@@ -376,8 +377,9 @@ func findSerialUSBDevice(satDeviceID string, isLPM bool) (string, error) {
 		if !strings.HasPrefix(port.Name, wantPort) {
 			continue
 		}
-		id := fmt.Sprintf("%s:%s", port.VID, port.PID)
+		id := strings.ToLower(fmt.Sprintf("%s:%s", port.VID, port.PID))
 		if isLPM {
+			println(id, "VS", satDeviceID)
 			if id == satDeviceID {
 				return port.Name, nil
 			}
