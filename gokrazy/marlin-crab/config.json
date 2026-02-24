@@ -38,6 +38,7 @@
 			}
 		},
 		"github.com/arribada/marlin-core/gc/cmd/gc": {
+			"DontStart": true,
 			"WaitForClock": true,
 			"Environment": [
 				"AZURE_CONN=AZURE_CONN_VAL",
