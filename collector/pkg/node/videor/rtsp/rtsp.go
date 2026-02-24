@@ -604,6 +604,12 @@ func (vr *Videor) splitDuration() time.Duration {
 	return vr.config.SplitDuration
 }
 
+const (
+	invalidFUA      = "invalid FU-A packet"
+	reorderedFrames = "too many reordered frames"
+	discardingFrame = "discarding frame since a RTP packet is missing"
+)
+
 func (vr *Videor) handlePacket(pkt *rtp.Packet) error {
 	// decode timestamp
 	pts, ok := vr.cl.PacketPTS(vr.media, pkt)
@@ -619,6 +625,12 @@ func (vr *Videor) handlePacket(pkt *rtp.Packet) error {
 	if err != nil {
 		if !errors.Is(err, rtph264.ErrNonStartingPacketAndNoPrevious) && !errors.Is(err, rtph264.ErrMorePacketsNeeded) {
 			if vr.config.Verbose {
+				if strings.HasPrefix(err.Error(), invalidFUA) {
+					return nil
+				}
+				if strings.HasPrefix(err.Error(), discardingFrame) {
+					return nil
+				}
 				log.Printf("rtp decoding error: %v", err)
 			}
 			return nil
@@ -629,6 +641,10 @@ func (vr *Videor) handlePacket(pkt *rtp.Packet) error {
 	// encode the access unit into MPEG-TS
 	if err := vr.muxer.writeH264(au, pts); err != nil {
 		if vr.config.Verbose {
+			// TODO: do better, i.e. something smart that only suppresses duplicate messages
+			if strings.HasPrefix(err.Error(), reorderedFrames) {
+				return nil
+			}
 			log.Printf("while writing H264 stream: %v", err)
 		}
 		return nil
