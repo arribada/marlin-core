@@ -546,6 +546,17 @@ func (up *uploader) loop(ctx context.Context) {
 			return
 		}
 
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		if run.Err != nil {
+			log.Printf("restarting upload run immediately because there was an error")
+			continue
+		}
+
 		tm := time.NewTimer(up.interval)
 		select {
 		case <-ctx.Done():
