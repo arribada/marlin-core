@@ -5,6 +5,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -15,6 +16,9 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"tailscale.com/net/ping"
+	"tailscale.com/types/logger"
 )
 
 var (
@@ -22,13 +26,17 @@ var (
 	flagMbimProfile string
 	flagPin         string
 	flagPriority    int
+	flagDebug       bool
+	flagVerbose     bool
 )
 
 func init() {
 	flag.StringVar(&flagMbimNet, "mbimnet", mbimNetwork, "path to the mbim-network script")
 	flag.StringVar(&flagMbimProfile, "profile", mbimConf, "path to the mbim-network.conf profile file")
-	flag.StringVar(&flagPin, "pin", "1234", "SIM card pin code")
+	flag.StringVar(&flagPin, "pin", "", "SIM card pin code")
 	flag.IntVar(&flagPriority, "priority", -2, "dhcp route priority")
+	flag.BoolVar(&flagDebug, "debug", false, "run in debug mode (shorter timeouts)")
+	flag.BoolVar(&flagVerbose, "v", true, "be verbose")
 }
 
 const (
@@ -37,52 +45,49 @@ const (
 	mbimConf    = "/etc/mbim-network.conf"
 )
 
-func checkFlags() {}
+func checkFlags() {
+	if flagPin == "" {
+		log.Fatal("-pin for SIM card not provided")
+	}
+}
 
 func main() {
 	flag.Parse()
 
 	checkFlags()
 
-	if err := connect(); err != nil {
-		log.Fatal(err)
-	}
+	retryConnect()
 
 	go func() {
-		// check regularly whether DHCP gave us a valid address
-		for {
-			time.Sleep(2 * time.Minute)
-			if err := checkValidAddr(); err != nil {
-				log.Fatal(err)
-			}
+		if err := dhcp(); err != nil {
+			log.Fatal(err)
 		}
 	}()
 
-	if err := dhcp(); err != nil {
+	// let DHCP do its thing
+	time.Sleep(time.Minute)
+
+	if err := retryTestConn(); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func dhcp() error {
-	// TODO: be stricter about parsing priority
-	cmd := exec.Command("/gokrazy/dhcp", "-interface=wwan0", fmt.Sprintf("-extra_route_priority=%d", flagPriority))
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Pdeathsig: syscall.SIGTERM,
+func retryConnect() {
+	minPause := time.Second
+	maxPause := 5 * time.Minute
+	pause := minPause
+	for {
+		err := connect()
+		if err == nil {
+			return
+		}
+		log.Printf("while trying to connect with cellular: %v\nretrying in %f", err, pause.Seconds())
+		time.Sleep(pause)
+		pause *= 2
+		if pause > maxPause {
+			pause = minPause
+		}
 	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	return cmd.Wait()
-}
-
-func mbim() ([]byte, error) {
-	cmd := exec.Command(flagMbimNet, "--pin", flagPin, "--profile", flagMbimProfile, "/dev/cdc-wdm0", "start")
-	cmd.Stderr = os.Stderr
-	out, err := cmd.Output()
-	fmt.Fprintf(os.Stdout, "%s", string(out))
-	return out, err
 }
 
 func connect() error {
@@ -96,6 +101,64 @@ func connect() error {
 	}
 
 	return nil
+}
+
+func mbim() ([]byte, error) {
+	cmd := exec.Command(flagMbimNet, "--pin", flagPin, "--profile", flagMbimProfile, "/dev/cdc-wdm0", "start")
+	cmd.Stderr = os.Stderr
+	out, err := cmd.Output()
+	fmt.Fprintf(os.Stdout, "%s", string(out))
+	return out, err
+}
+
+func dhcp() error {
+	cmd := exec.Command("/gokrazy/dhcp", "-interface=wwan0", fmt.Sprintf("-extra_route_priority=%d", flagPriority))
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Pdeathsig: syscall.SIGTERM,
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	return cmd.Wait()
+}
+
+func retryTestConn() error {
+	bigPause := time.Minute
+	if flagDebug {
+		bigPause = 30 * time.Second
+	}
+	for {
+		if err := checkValidAddr(); err != nil {
+			return fmt.Errorf("while checking for valid address from DHCP: %v", err)
+		}
+
+		pause := 30 * time.Second
+		timeout := 10 * time.Minute
+		if flagDebug {
+			timeout = 2 * time.Minute
+		}
+		start := time.Now()
+		for {
+			ok, err := testConnection()
+			if err != nil {
+				return fmt.Errorf("while testing connection: %v", err)
+			}
+			if ok {
+				break
+			}
+			time.Sleep(pause)
+			if time.Since(start) > timeout {
+				return fmt.Errorf("network unreachable for more than %f, restarting cellular", timeout.Seconds())
+			}
+			pause *= 2
+			if flagDebug {
+				pause = 30 * time.Second
+			}
+		}
+		time.Sleep(bigPause)
+	}
 }
 
 func checkValidAddr() error {
@@ -135,6 +198,59 @@ func checkValidAddr() error {
 	if strings.HasPrefix(addr, "192.0") {
 		return errors.New("DHCP did not give us working address")
 	}
-	println("GOOD ADDR:", addr)
+	log.Printf("Got valid addr from DHCP: %v", addr)
 	return nil
+}
+
+// TODO: remove error from signature when we're happy with this implementation.
+func testConnection() (bool, error) {
+	dest, err := net.ResolveIPAddr("ip4", "google.com")
+	if err != nil {
+		log.Printf("while testing connection, cannot resolve: %v", err)
+		return false, nil
+	}
+
+	// TODO: do we actually need all of that below? Could we just limit
+	// ourselves to try resolving?
+	parentCtx := context.Background()
+	var lg logger.Logf
+	var lp net.ListenConfig
+	p := ping.New(parentCtx, lg, &lp)
+	defer p.Close()
+
+	count := 20
+	tm := 10 * time.Second
+	badPing := 0
+	lastPingOK := true
+	for i := 0; i < count; i++ {
+		ctx, cancel := context.WithTimeout(parentCtx, tm)
+		d, err := p.Send(ctx, dest, nil)
+		cancel()
+		if err != nil {
+			badPing++
+			lastPingOK = false
+			if flagVerbose {
+				log.Printf("while testing connection with ping: %v", err)
+			}
+		} else {
+			lastPingOK = true
+			if flagVerbose {
+				log.Printf("ping ok: %fs", d.Seconds())
+			}
+		}
+		time.Sleep(3 * time.Second)
+	}
+	// if last ping was good, we're happy
+	if lastPingOK {
+		return true, nil
+	}
+	// if last ping was not good, but most of our pings were good, we're still happy
+	badPingRatio := float64(badPing) / float64(count)
+	if badPingRatio <= 0.25 {
+		return true, nil
+	}
+	if flagVerbose {
+		log.Printf("bad pings ratio: %f", badPingRatio)
+	}
+	return false, nil
 }

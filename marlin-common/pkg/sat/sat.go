@@ -72,6 +72,7 @@ func encodeLongitude(long float64) []byte {
 	return encodeAsBytes(long, longWidth)
 }
 
+// uses IEEE 754 for floats to bits
 func encodeAsBytes(f float64, width int) []byte {
 	var buf = make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, math.Float64bits(f))

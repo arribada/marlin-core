@@ -25,6 +25,12 @@
 		"github.com/arribada/marlin-core/gateway/cmd/gateway"
 	],
 	"PackageConfig": {
+		"github.com/gokrazy/gokrazy/cmd/dhcp": {
+			"CommandLineFlags": [
+				"-extra_route_priority=10",
+				"-interface=eth0"
+			]
+		},
 		"github.com/gokrazy/wifi": {
 			"DontStart": true,
 			"ExtraFilePaths": {
@@ -96,7 +102,7 @@
 		},
 		"github.com/arribada/marlin-core/cellular/cmd/cellular": {
 			"ExtraFilePaths": {
-				"/etc/mbim-network.conf": "/home/marlin/src/github.com/arribada/marlin-core/cellular/mbim-network.conf",
+				"/etc/mbim-network.conf": "/home/marlin/src/github.com/arribada/marlin-core/cellular/mbim-network.conf.free",
 				"/usr/local/bin/mbim-network": "/home/marlin/src/github.com/arribada/marlin-core/cellular/mbim-network",
 				"/usr/local/bin/mbimcli": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/mbimcli",
 				"/usr/local/lib/mbim/ld-linux-aarch64.so.1": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/ld-linux-aarch64.so.1",
@@ -116,7 +122,9 @@
 			},
 			"CommandLineFlags": [
 				"-pin=1234",
-				"-priority=-2"
+				"-priority=-2",
+				"-debug=false",
+				"-v=true"
 			]
 		},
 		"github.com/arribada/marlin-core/databrowser/cmd/databrowser": {
