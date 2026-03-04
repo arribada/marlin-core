@@ -57,8 +57,10 @@ func initStuff() {
 		log.Fatalf("userpass not provided")
 	}
 
-	if err := utils.WaitForDrive(flagCaptain); err != nil {
-		log.Fatal(err)
+	if flagCaptain != "" {
+		if err := utils.WaitForDrive(flagCaptain); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	var err error
