@@ -146,7 +146,7 @@ func (ew *EventsWatcher) videoRecState() bool {
 }
 
 func (ew *EventsWatcher) trackButtonPresses() {
-	ew.lastButtonPress = time.Now()
+	ew.lastButtonPress = time.Now().UTC()
 	for {
 		bp := <-ew.chans.ButtonPress
 		// we still want to be responsive for our controller http handler,
@@ -159,7 +159,8 @@ func (ew *EventsWatcher) trackButtonPresses() {
 			ew.lastButtonPressMu.Lock()
 			defer ew.lastButtonPressMu.Unlock()
 			for {
-				if time.Now().Sub(ew.lastButtonPress) > time.Second {
+				now := time.Now().UTC()
+				if now.Sub(ew.lastButtonPress) > time.Second {
 					break
 				}
 				time.Sleep(200 * time.Millisecond)
@@ -526,13 +527,13 @@ func (up *uploader) loop(ctx context.Context) {
 
 	for {
 		run := &types.UploadRun{
-			TimeStart: time.Now(),
+			TimeStart: time.Now().UTC(),
 		}
 		if err := up.uploadAll(); err != nil {
 			logger.LogAndSend(fmt.Sprintf("while the uploader was walking the tree: %v", err), true)
 			run.Err = err
 		}
-		run.TimeEnd = time.Now()
+		run.TimeEnd = time.Now().UTC()
 		run.FilesUploaded = up.filesUploaded
 		run.FilesSeen = up.filesSeen
 		run.FilesToUpload = up.filesToUpload

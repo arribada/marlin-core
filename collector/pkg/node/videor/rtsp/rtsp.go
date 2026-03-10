@@ -339,7 +339,7 @@ func (v *Videor) recordLoop(ctx context.Context) {
 			return
 		case <-v.recordStart:
 		}
-		v.startTime = time.Now()
+		v.startTime = time.Now().UTC()
 		v.recordStopMu.RLock()
 		if v.recordStop != nil {
 			// called here, to free the previous recording context, in case the recording
@@ -440,7 +440,7 @@ func (v *Videor) newMuxer(frmt *format.H264) (*mpegtsMuxer, error) {
 	if err := os.MkdirAll(tmpDir, os.ModePerm); err != nil {
 		return nil, fmt.Errorf("while creating temp destination dir: %w", err)
 	}
-	fileName, err := datatype.NewFileName(datatype.Video, time.Now())
+	fileName, err := datatype.NewFileName(datatype.Video, time.Now().UTC())
 	if err != nil {
 		return nil, err
 	}
@@ -596,7 +596,8 @@ func (vr *Videor) splitDuration() time.Duration {
 		return vr.config.SplitDuration
 	}
 
-	dur := vr.config.RecTimeout - time.Since(vr.startTime)
+	sinceStart := time.Now().UTC().Sub(vr.startTime)
+	dur := vr.config.RecTimeout - sinceStart
 	if dur < vr.config.SplitDuration {
 		return dur
 	}

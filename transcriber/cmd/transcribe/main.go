@@ -374,7 +374,13 @@ func runTranscriber(ctx context.Context) {
 			continue
 		}
 
-		tm := time.Now()
+		// TODO: we cheat for now because we know that the controller sends
+		// buffers of 20 seconds, but we should do better and derive the
+		// actual duration from the samples themselves. The problem is we want
+		// to use the same time for the STT file. So we would have to delay
+		// writing the STT file as well until we have used wav decoding or
+		// something that would give us the actual duration.
+		tm := time.Now().UTC().Add(-20 * time.Second)
 
 		go func() {
 			if err := writeWav(tm, samples.asInts); err != nil {
