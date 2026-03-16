@@ -20,15 +20,13 @@ var (
 	// TODO: make it a list
 	flagVessel  string
 	flagGoproxy string
-	flagForce   bool
-	flagSbom    bool
+	flagTarget  string
 )
 
 func init() {
 	flag.StringVar(&flagVessel, "vessel", "", "vessel to update")
 	flag.StringVar(&flagGoproxy, "goproxy", "https://proxy.golang.org,direct", "to set GOPROXY during the build in docker. Use 'make athens' to start a local one beforehand. then run with e.g. http://192.168.0.47:3000")
-	flag.BoolVar(&flagForce, "force", false, "push update directly onto the device, rather than on GUS")
-	flag.BoolVar(&flagSbom, "sbom", false, "generate sbom instead")
+	flag.StringVar(&flagTarget, "target", "update", "the actual target from the Makefile this is eventually run.")
 }
 
 var (
@@ -139,13 +137,7 @@ func updateVessel(vessel string) error {
 	if err != nil {
 		log.Fatalf("while injecting secrets: %v", err)
 	}
-	cmd := exec.Command("make", "update")
-	if flagForce {
-		cmd = exec.Command("make", "forceupdate")
-	}
-	if flagSbom {
-		cmd = exec.Command("make", "sbom")
-	}
+	cmd := exec.Command("make", flagTarget)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	return cmd.Run()
