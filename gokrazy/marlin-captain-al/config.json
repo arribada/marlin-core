@@ -30,6 +30,7 @@
 			"DontStart": true
 		},
 		"github.com/gokrazy/wifi": {
+			"DontStart": true,
 			"ExtraFilePaths": {
 				"/etc/wifi.json": "wifi.json"
 			}
@@ -37,7 +38,7 @@
 		"github.com/arribada/marlin-core/cellular/cmd/cellular": {
 			"DontStart": true,
 			"ExtraFilePaths": {
-				"/etc/mbim-network.conf": "/home/marlin/src/github.com/arribada/marlin-core/cellular/mbim-network.conf",
+				"/etc/mbim-network.conf": "/home/marlin/src/github.com/arribada/marlin-core/cellular/mbim-network.conf.ee",
 				"/usr/local/bin/mbim-network": "/home/marlin/src/github.com/arribada/marlin-core/cellular/mbim-network",
 				"/usr/local/bin/mbimcli": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/mbimcli",
 				"/usr/local/lib/mbim/ld-linux-aarch64.so.1": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/ld-linux-aarch64.so.1",
