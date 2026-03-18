@@ -380,6 +380,10 @@ func testRestoreAll(t *testing.T) {
 }
 
 func TestGC(t *testing.T) {
+	if _, err := os.Stat("testdata/integration"); os.IsNotExist(err) {
+		t.Skip("Skipping: testdata/integration not present")
+	}
+
 	// a full day has 23 json files + 23 mp4 files = 46 files
 	filesPerDay := 46
 	foundFiles, err := countFiles(rootDir, "2025")
