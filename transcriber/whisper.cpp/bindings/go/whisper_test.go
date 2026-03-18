@@ -68,6 +68,9 @@ func Test_Whisper_001(t *testing.T) {
 }
 
 func Test_Whisper_002(t *testing.T) {
+	if _, err := os.Stat(ModelPath); os.IsNotExist(err) {
+		t.Skip("Skipping test, model not found:", ModelPath)
+	}
 	assert := assert.New(t)
 	for i := 0; i < whisper.Whisper_lang_max_id(); i++ {
 		str := whisper.Whisper_lang_str(i)
