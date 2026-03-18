@@ -23,6 +23,10 @@ import (
 )
 
 func TestAudioGC(t *testing.T) {
+	if _, err := os.Stat("testdata/integration"); os.IsNotExist(err) {
+		t.Skip("Skipping: testdata/integration not present")
+	}
+
 	g := AudioGC{
 		RootDir:     "testdata/audio",
 		Verbose:     true,
