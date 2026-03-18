@@ -30,7 +30,6 @@ jobs:
           # which requires CGO and the whisper.cpp C library.
           modules=(
             ap
-            captain
             cellular
             collector
             databrowser
