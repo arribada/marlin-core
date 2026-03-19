@@ -28,7 +28,6 @@
 	],
 	"PackageConfig": {
 		"github.com/arribada/marlin-core/ap/cmd/ap": {
-			"DontStart": true,
 			"ExtraFilePaths": {
 				"/usr/local/bin/hostapd": "/home/marlin/src/github.com/arribada/marlin-core/ap/freeze/hostapd",
 				"/usr/local/lib/hostapd/ld-linux-aarch64.so.1": "/home/marlin/src/github.com/arribada/marlin-core/ap/freeze/ld-linux-aarch64.so.1",
@@ -51,6 +50,7 @@
 			]
 		},
 		"github.com/gokrazy/wifi": {
+			"DontStart": true,
 			"ExtraFilePaths": {
 				"/etc/wifi.json": "wifi.json"
 			}
@@ -80,7 +80,7 @@
 		},
 		"github.com/gokrazy/gokrazy/cmd/dhcp": {
 			"CommandLineFlags": [
-				"-extra_route_priority=-1",
+				"-extra_route_priority=10",
 				"-interface=eth0"
 			]
 		},
@@ -126,6 +126,8 @@
 				"-host=:7140",
 				"-captain=localhost:7143",
 				"-video=false",
+				"-sat=false",
+				"-gps=true",
 				"-gps_device=/tmp/gps"
 			]
 		},
