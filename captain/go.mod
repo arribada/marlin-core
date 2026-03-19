@@ -1,9 +1,8 @@
-module github.com/mpl/cgodemo/captain
+module github.com/arribada/marlin-core/captain
 
 go 1.24.0
 
 require (
-	github.com/arribada/insight-360/common v0.1.0
 	github.com/diskfs/go-diskfs v1.5.1
 	golang.org/x/sys v0.19.0
 )
@@ -18,5 +17,3 @@ require (
 	github.com/sirupsen/logrus v1.9.4-0.20230606125235-dd1b4c2e81af // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect
 )
-
-replace github.com/arribada/insight-360/common => ../common
