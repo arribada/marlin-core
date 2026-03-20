@@ -5,6 +5,7 @@ package sat
 
 import (
 	"math"
+	"strings"
 	"testing"
 	"time"
 )
@@ -74,5 +75,16 @@ func TestGenRawData(t *testing.T) {
 	}
 	if tm.Second() != second {
 		t.Fatalf("wrong second, wanted %d, got %d", wantSecond, second)
+	}
+}
+
+func TestSafeDecode(t *testing.T) {
+	buf := []byte("blabla")
+	_, _, _, err := DecodeRawData(buf)
+	if err == nil {
+		t.Fatal("should have been an error")
+	}
+	if !strings.HasPrefix(err.Error(), "invalid raw data length") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

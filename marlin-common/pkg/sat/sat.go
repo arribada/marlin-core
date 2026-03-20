@@ -20,6 +20,7 @@ type Alert struct {
 const (
 	latWidth  = 4
 	longWidth = 5
+	timeWidth = 3
 	LDA2Size  = 24 // LDA2 is 196 bits, but 192 bits is ok too.
 )
 
@@ -72,7 +73,6 @@ func encodeLongitude(long float64) []byte {
 	return encodeAsBytes(long, longWidth)
 }
 
-// uses IEEE 754 for floats to bits
 func encodeAsBytes(f float64, width int) []byte {
 	var buf = make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, math.Float64bits(f))
@@ -89,6 +89,10 @@ func DecodeRawData(buf []byte) (float64, float64, time.Time, error) {
 	// TODO: sad we have to allocate to do the decoding. But needed to
 	// avoid panicking of stdlib. We should recode it ourselves.
 
+	dataLen := latWidth + longWidth + timeWidth
+	if len(buf) < dataLen {
+		return 0, 0, time.Time{}, fmt.Errorf("invalid raw data length: %d (expected %d)", len(buf), dataLen)
+	}
 	latBuf := make([]byte, 8)
 	copy(latBuf, buf[:latWidth])
 	lat := decodeRaw(latBuf)
