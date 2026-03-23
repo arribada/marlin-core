@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MARLIN recorded data</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="assets/lucide.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-icon">
+        <i data-lucide="calendar" style="width:24px;height:24px;"></i>
+      </div>
+      <h1>MARLIN recorded data</h1>
+      <p class="subtitle">Browse and view your past recordings</p>
+    </div>
+
+    <div id="trip-list"></div>
+
+    <div id="footer" style="display:none;"></div>
+
+  </div>
+
+  <script>
+    // Extracts date from folder href
+    function parseFolder(href) {
+      const match = href.match(/^(\d{4})-(\d{2})-(\d{2})\/$/);
+      if (!match) return null;
+      const [, y, m, d] = match;
+      return new Date(`${y}-${m}-${d}T12:00:00Z`);
+    }
+
+    // Formats a date as "Friday, 20 March 2026"
+    function formatFull(date) {
+      return date.toLocaleDateString('en-GB', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+        timeZone: 'UTC'
+      });
+    }
+
+    // Formats a date as "March 2026" (used for the month group headers)
+    function formatMonthYear(date) {
+      return date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    }
+
+    // Fetches the directory listing from the server and extracts date folders
+    async function getFolders() {
+      try {
+        const res = await fetch('/data/');
+        const entries = await res.json();
+
+        const dated = [];
+        const extras = [];
+
+        entries.forEach(name => {
+          const date = parseFolder(name + '/');
+          if (date) {
+            dated.push({ href: name + '/', date });
+          } else {
+            extras.push({ href: name + '/', name });
+          }
+        })
+
+        dated.sort((a, b) => b.date - a.date);
+        return { dated, extras };
+      } catch (e) {
+        console.error('Could not fetch folder list:', e);
+        return { dated: [], extras: [] };
+      }
+    }
+
+    function buildCard(folder, index) {
+      const a = document.createElement('a');
+      a.className = 'card trip-card';
+      const dateStr = folder.href.replace('/', '');
+      a.href = `trip.html?date=${dateStr}`;
+      a.style.animationDelay = `${index * 0.035}s`;
+      a.innerHTML = `
+        <div class="card-left">
+          <div class="card-icon">
+            <i data-lucide="calendar" style="width:18px;height:18px;"></i>
+          </div>
+          <div>
+            <div class="card-date">${formatFull(folder.date)}</div>
+          </div>
+        </div>
+        <span class="chevron">
+          <i data-lucide="chevron-right" style="width:18px;height:18px;"></i>
+        </span>
+      `;
+      requestAnimationFrame(() => requestAnimationFrame(() => a.classList.add('visible')));
+      return a;
+    }
+
+    function buildExtraCard(entry, index) {
+      const a = document.createElement('a');
+      a.className = 'card trip-card';
+      a.href = entry.href;
+      a.style.animationDelay = `${index * 0.035}s`;
+      a.innerHTML = `
+        <div class="card-left">
+          <div class="card-icon">
+            <i data-lucide="folder" style="width:18px;height:18px;"></i>
+          </div>
+          <div>
+            <div class="card-date">${entry.name}</div>
+          </div>
+        </div>
+        <span class="chevron">
+          <i data-lucide="chevron-right" style="width:18px;height:18px;"></i>
+        </span>
+      `;
+      requestAnimationFrame(() => requestAnimationFrame(() => a.classList.add('visible')));
+      return a;
+    }
+
+    function render({ dated, extras }) {
+      const list = document.getElementById('trip-list');
+      const footer = document.getElementById('footer');
+      list.innerHTML = '';
+
+      if (dated.length === 0 && extras.length === 0) {
+        list.innerHTML = `
+          <div class="empty">
+            <i data-lucide="folder-open" style="width:40px;height:40px;"></i>
+            <h3>No data found</h3>
+          </div>`;
+        footer.style.display = 'none';
+        lucide.createIcons();
+        return;
+      }
+
+      let i = 0;
+
+      // Date folders grouped by month
+      const groups = {};
+      dated.forEach(f => {
+        const key = formatMonthYear(f.date);
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(f);
+      });
+
+      Object.entries(groups).forEach(([month, items]) => {
+        const group = document.createElement('div');
+        group.className = 'month-group';
+        group.innerHTML = `<div class="month-header"><h3>${month}</h3><div class="divider"></div></div>`;
+        items.forEach(f => group.appendChild(buildCard(f, i++)));
+        list.appendChild(group);
+      });
+
+      // -------------------------------------------------------------
+      // UNCOMMENT IF WE WANT TO SHOW NON-DATE FOLDERS ON THE HOMEPAGE
+      // -------------------------------------------------------------
+      // if (extras.length > 0) {
+      //   const extrasGroup = document.createElement('div');
+      //   extrasGroup.className = 'month-group';
+      //   extrasGroup.innerHTML = `<div class="month-header"><h3>Additionals</h3><div class="divider"></div></div>`;
+      //   extras.forEach(entry => extrasGroup.appendChild(buildExtraCard(entry, i++)));
+      //   list.appendChild(extrasGroup);
+      // }
+
+      footer.style.display = 'block';
+      footer.innerHTML = `
+        <p>
+          ${dated.length} trip folder${dated.length !== 1 ? 's' : ''}
+        </p>
+      `;
+      lucide.createIcons();
+    }
+
+    let allData = { dated: [], extras: [] };
+
+    getFolders().then(data => {
+      allData = data;
+      render(allData);
+    });
+
+    lucide.createIcons();
+  </script>
+
+</body>
+</html>

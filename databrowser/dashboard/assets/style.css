@@ -1,0 +1,368 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+@font-face {
+  font-family: 'Inter';
+  font-weight: 300;
+  src: url('assets/fonts/inter-latin-300-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-weight: 400;
+  src: url('assets/fonts/inter-latin-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-weight: 500;
+  src: url('assets/fonts/inter-latin-500-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-weight: 600;
+  src: url('assets/fonts/inter-latin-600-normal.woff2') format('woff2');
+}
+
+:root {
+  --bg:           #f0f4f8;
+  --surface:      #ffffff;
+  --surface-hover:#f5f7fa;
+  --border:       #e5e9f0;
+  --ocean:        #2d3a8c;
+  --ocean-dim:    rgba(45,58,140,0.08);
+  --ocean-dim2:   rgba(45,58,140,0.14);
+  --text:         #1a1f36;
+  --muted:        #8a94a6;
+  --muted-light:  #a0aab8;
+  --radius:       14px;
+  --card-radius:  12px;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 3rem 1rem 5rem;
+}
+
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+
+/* ── Shared card base ───────────────────────────────────────────────── */
+.card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+/* Entrance animation trigger */
+.card.visible {
+  animation: cardIn 0.3s ease forwards;
+}
+
+/* Left accent bar — hidden by default, revealed on hover */
+.card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--ocean);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.2s ease;
+}
+
+/* Shared hover state */
+.card:hover {
+  background: var(--surface-hover);
+  border-color: rgba(45,58,140,0.25);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transform: translateX(2px);
+}
+
+/* Reveals the accent bar on hover */
+.card:hover::before { transform: scaleY(1); }
+
+/* Turns the chevron navy and slides it right on hover */
+.card:hover .chevron {
+  color: var(--ocean);
+  transform: translateX(3px);
+}
+
+/* Strengthens the icon background on hover */
+.card:hover .card-icon { background: var(--ocean-dim2); }
+
+
+/* ── Card padding variants ──────────────────────────────────────────── */
+/* Trip and file cards use standard padding */
+.trip-card,
+.file-card  { padding: 1rem 1.1rem; }
+
+/* Category cards have slightly more padding */
+.category-card { padding: 1.1rem 1.25rem 1.1rem 1.4rem; }
+
+
+/* ── Card icon ──────────────────────────────────────────────────────── */
+.card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--ocean-dim);
+  flex-shrink: 0;
+  transition: background 0.15s;
+  width: 40px;
+  height: 40px;
+}
+
+.card-icon svg { color: var(--ocean); }
+
+/* ── Card left group ────────────────────────────────────────────────── */
+.card-left { display: flex; align-items: center; gap: 1rem; }
+
+
+/* ── Chevron ────────────────────────────────────────────────────────── */
+.chevron {
+  color: var(--muted-light);
+  transition: color 0.15s, transform 0.15s;
+  flex-shrink: 0;
+  display: flex;
+}
+
+
+/* ── Header styles ──────────────────────────────────────────────────── */
+.header {
+  text-align: center;
+  margin-bottom: 2rem;
+  animation: fadeUp 0.4s ease both;
+}
+
+.header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--ocean-dim);
+  margin-bottom: 0.85rem;
+}
+
+.header-icon svg { color: var(--ocean); }
+
+/* Shared header style for trip and files pages */
+.trip-header,
+.files-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1.5px solid var(--border);
+  animation: fadeUp 0.4s ease both;
+}
+
+/* Extra gap on the trip header */
+.trip-header { gap: 0.75rem; }
+
+h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--ocean);
+  letter-spacing: -0.01em;
+  margin-bottom: 0.35rem;
+}
+
+.subtitle {
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+
+/* ── Back button ────────────────────────────────────────────────────── */
+.back-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.9rem;
+  transition: color 0.15s;
+  margin-left: -4px;
+  margin-bottom: 1rem;
+  padding: 0;
+}
+
+.back-btn:hover { color: var(--ocean); }
+.back-btn svg { color: inherit; }
+
+
+/* ── Lists ──────────────────────────────────────────────────────────── */
+#trip-list  { display: flex; flex-direction: column; gap: 1.75rem; }
+.categories { display: flex; flex-direction: column; gap: 0.75rem; }
+.file-list  { display: flex; flex-direction: column; gap: 0.65rem; }
+
+.month-group { display: flex; flex-direction: column; gap: 0.6rem; }
+
+.month-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.month-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ocean);
+  white-space: nowrap;
+}
+
+.month-header .divider {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+
+/* ── Text styles ────────────────────────────────────────────────────── */
+.card-date {
+  font-size: 0.925rem;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.card-weekday {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.card-name {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.file-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+  word-break: break-all;
+  margin-bottom: 3px;
+}
+
+.file-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.file-type {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--ocean);
+  background: var(--ocean-dim);
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.file-open {
+  color: var(--muted-light);
+  transition: color 0.15s, transform 0.15s;
+  flex-shrink: 0;
+  display: flex;
+  margin-left: 0.5rem;
+}
+
+.file-card:hover .file-open {
+  color: var(--ocean);
+  transform: translateX(2px);
+}
+
+
+/* ── Breadcrumb ─────────────────────────────────────────────────────── */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Date and category share the same style */
+.breadcrumb-date,
+.breadcrumb-category {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--ocean);
+  letter-spacing: -0.01em;
+}
+
+.breadcrumb-sep {
+  font-size: 1.25rem;
+  font-weight: 300;
+  color: var(--muted-light);
+}
+
+
+/* ── Empty state ────────────────────────────────────────────────────── */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 3.5rem 1rem;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius);
+  text-align: center;
+  background: var(--surface);
+  animation: fadeUp 0.4s ease both;
+}
+
+.empty svg { color: var(--muted-light); }
+.empty h3  { color: var(--muted); font-size: 0.95rem; font-weight: 500; }
+.empty p   { color: var(--muted-light); font-size: 0.82rem; }
+
+
+/* ── Footer ─────────────────────────────────────────────────────────── */
+#footer {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted-light);
+  margin-top: 1.5rem;
+}
+
+
+/* ── Animations ─────────────────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes cardIn {
+  to { opacity: 1; transform: translateY(0); }
+}

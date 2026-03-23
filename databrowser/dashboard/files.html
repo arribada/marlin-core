@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Files</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+
+<body>
+
+<script src="assets/lucide.min.js"></script>
+
+<div class="container">
+
+  <div class="files-header">
+    <button class="back-btn" onclick="history.back()">
+      <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
+      Back to Trip
+    </button>
+
+    <div class="breadcrumb">
+      <span class="breadcrumb-date" id="breadcrumb-date"></span>
+      <span class="breadcrumb-sep">/</span>
+      <span class="breadcrumb-category" id="breadcrumb-category"></span>
+    </div>
+  </div>
+
+  <div class="file-list" id="file-list"></div>
+
+  <div id="footer" style="display:none;"></div>
+
+</div>
+
+<script>
+  const categoryConfig = {
+    video:      { icon: 'video', label: 'Video' },
+    audio:      { icon: 'mic', label: 'Audio' },
+    transcript: { icon: 'file-text', label: 'Transcript' },
+    gps:        { icon: 'map-pin', label: 'GPS' },
+  };
+
+  // Gets the date and category from the URL
+  const params = new URLSearchParams(window.location.search);
+  const dateStr = params.get('date') || '';
+  const categoryId = params.get('category') || '';
+
+  const config = categoryConfig[categoryId] || { icon: 'file', label: 'Files' };
+
+  const date = new Date(`${dateStr}T12:00:00Z`);
+
+  const formattedDate = date.toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC'
+  });
+
+  document.getElementById('breadcrumb-date').textContent = formattedDate;
+  document.getElementById('breadcrumb-category').textContent = config.label;
+  document.title = `${config.label} — ${formattedDate}`;
+
+  // Fetches file list from the server for this date and category folder
+  async function getFiles() {
+    try {
+      const res = await fetch(`/data/${dateStr}/${categoryId}/`);
+      return await res.json();
+    } catch (e) {
+      console.error('Could not fetch file list:', e);
+      return [];
+    }
+  }
+
+  // Builds a file card link, the browser will open it in its default player
+  function buildCard(filename, index) {
+    const a = document.createElement('a');
+    a.className = 'card file-card';
+    a.href = `/data/${dateStr}/${categoryId}/${filename}`;
+    a.style.animationDelay = `${index * 0.05}s`;
+    const ext = filename.split('.').pop().toUpperCase();
+    a.innerHTML = `
+      <div class="card-left">
+        <div class="card-icon">
+          <i data-lucide="${config.icon}" style="width:18px;height:18px;"></i>
+        </div>
+        <div>
+          <div class="file-name">${filename}</div>
+          <div class="file-meta">
+            <span class="file-type">${ext}</span>
+          </div>
+        </div>
+      </div>
+      <span class="file-open">
+        <i data-lucide="external-link" style="width:16px;height:16px;"></i>
+      </span>
+    `;
+    requestAnimationFrame(() => requestAnimationFrame(() => a.classList.add('visible')));
+    return a;
+  }
+
+  const listEl = document.getElementById('file-list');
+  const footerEl = document.getElementById('footer');
+
+  getFiles().then(files => {
+    if (files.length === 0) {
+      listEl.innerHTML = `
+        <div class="empty">
+          <i data-lucide="folder-open" style="width:40px;height:40px;"></i>
+          <h3>No files found</h3>
+          <p>This folder appears to be empty</p>
+        </div>`;
+      lucide.createIcons();
+      return;
+    }
+
+    files.forEach((filename, index) => {
+      listEl.appendChild(buildCard(filename, index));
+    });
+
+    footerEl.style.display = 'block';
+    footerEl.textContent = `${files.length} ${files.length === 1 ? 'file' : 'files'}`;
+
+    lucide.createIcons();
+  });
+
+  lucide.createIcons();
+</script>
+
+</body>
+</html>

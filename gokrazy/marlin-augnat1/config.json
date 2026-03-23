@@ -136,10 +136,14 @@
 			"Environment": [
 				"AUTH_USERPASS=AUTH_USERPASS_VAL"
 			],
+			"ExtraFilePaths": {
+				"/usr/local/share/databrowser/dashboard": "/home/marlin/src/github.com/arribada/marlin-core/databrowser/dashboard"
+			},
 			"CommandLineFlags": [
 				"-host=:7144",
 				"-v=true",
-				"-outdir=/perm/marlin"
+				"-code=/usr/local/share/databrowser/dashboard",
+				"-data=/perm/marlin"
 			]
 		},
 		"github.com/arribada/marlin-core/transcriber/cmd/transcribe": {

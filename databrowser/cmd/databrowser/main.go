@@ -4,6 +4,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -19,21 +20,21 @@ import (
 )
 
 var (
-	flagHost      string
-	flagVerbose   bool
-	flagUserPass  string
-	flagUrlPrefix string
-	flagOutDir    string
-	flagCaptain   string
+	flagHost     string
+	flagVerbose  bool
+	flagUserPass string
+	flagCodeDir  string
+	flagDataDir  string
+	flagCaptain  string
 )
 
 func init() {
 	// TODO: make it listen only on TS interface?
 	flag.StringVar(&flagHost, "host", ":7144", "listening port and hostname")
 	flag.StringVar(&flagUserPass, "userpass", "", "basic auth username and password. Also read from AUTH_USERPASS env var.")
-	flag.StringVar(&flagUrlPrefix, "urlprefix", "", "url path prefix")
 	flag.BoolVar(&flagVerbose, "v", false, "be verbose")
-	flag.StringVar(&flagOutDir, "outdir", "./out", "output data directory")
+	flag.StringVar(&flagDataDir, "data", "/perm/marlin", "the directory where the served data lives. Served at /rawdata (as html) and /data (as json).")
+	flag.StringVar(&flagCodeDir, "code", "./dashboard", "the .html, .js, etc. resources directory, served at /")
 	flag.StringVar(&flagCaptain, "captain", "localhost:7143", "wait for captain (to have mounted an external drive at this host:port. Skip if empty.")
 }
 
@@ -41,9 +42,14 @@ var (
 	up *basicauth.UserPass
 )
 
+const (
+	dataPrefix    = "/data/"
+	rawdataPrefix = "/rawdata/"
+)
+
 func initStuff() {
 	if flagCaptain == "" {
-		if err := os.MkdirAll(flagOutDir, 0750); err != nil {
+		if err := os.MkdirAll(flagDataDir, 0750); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -90,7 +96,7 @@ func (s sortedFiles) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-func sortedDirList(w http.ResponseWriter, f http.File, needsPrefix bool) {
+func sortedDirList(w http.ResponseWriter, f http.File) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(w, "<pre>\n")
 	var sdirs sortedFiles
@@ -108,13 +114,6 @@ func sortedDirList(w http.ResponseWriter, f http.File, needsPrefix bool) {
 			name += "/"
 		}
 		href := name
-		// Since all hrefs are relative to the current dir, we only prepend
-		// flagUrlPrefix if we are at the root dir.
-		if needsPrefix {
-			// not using path.Join because it removes trailing "/" , which is needed to signal
-			// that we are in a dir
-			href = flagUrlPrefix + "/" + href
-		}
 		// TODO htmlescape
 		fmt.Fprintf(w, "<a href=\"%s\">%s</a>\n", href, name)
 	}
@@ -140,7 +139,7 @@ func checkLastModified(w http.ResponseWriter, r *http.Request, modtime time.Time
 
 // copied from stdlib, and modified to server sorted listing
 // name is '/'-separated, not filepath.Separator.
-func serveFile(w http.ResponseWriter, r *http.Request, fs http.FileSystem, name string, needsPrefix bool) {
+func serveFile(w http.ResponseWriter, r *http.Request, fs http.FileSystem, name string) {
 	const indexPage = "/index.html"
 
 	f, err := fs.Open(name)
@@ -181,7 +180,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, fs http.FileSystem, name 
 		if checkLastModified(w, r, d.ModTime()) {
 			return
 		}
-		sortedDirList(w, f, needsPrefix)
+		sortedDirList(w, f)
 		return
 	}
 
@@ -192,16 +191,9 @@ func serveFile(w http.ResponseWriter, r *http.Request, fs http.FileSystem, name 
 type fileServer struct{}
 
 func (fs fileServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	urlPath := r.URL.Path
-	needsPrefix := false
-	if flagUrlPrefix != "" {
-		urlPath = strings.TrimPrefix(urlPath, flagUrlPrefix)
-		if urlPath == "" || urlPath == "/" {
-			needsPrefix = true
-		}
-	}
-	dir, file := filepath.Split(filepath.Join(flagOutDir, urlPath))
-	serveFile(w, r, http.Dir(dir), file, needsPrefix)
+	fullPath := filepath.Join(flagDataDir, strings.TrimPrefix(r.URL.Path, rawdataPrefix))
+	dir, file := filepath.Split(fullPath)
+	serveFile(w, r, http.Dir(dir), file)
 }
 
 type reportHandler struct {
@@ -211,7 +203,7 @@ type reportHandler struct {
 func (rh reportHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var theDay string
 	if _, err := time.Parse(time.DateOnly, rh.day); err != nil {
-		lastDay, err := getPreviousFishingDay(flagOutDir)
+		lastDay, err := getPreviousFishingDay(flagDataDir)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("while trying to find last fishing day: %v", err), 500)
 			return
@@ -222,12 +214,95 @@ func (rh reportHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dt := []string{"gps", "video"}
-	out, err := doDay(flagOutDir, theDay, dt)
+	out, err := doDay(flagDataDir, theDay, dt)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	w.Write([]byte(out))
+}
+
+type dataServer struct{}
+
+func (s dataServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	fullPath := filepath.Join(flagDataDir, strings.TrimPrefix(r.URL.Path, dataPrefix))
+
+	fi, err := os.Stat(fullPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			http.NotFound(w, r)
+			return
+		}
+		log.Printf("stat error for %v: %v", fullPath, err)
+		http.Error(w, "", 500)
+		return
+	}
+
+	if !fi.IsDir() {
+		f, err := os.Open(fullPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				http.NotFound(w, r)
+				return
+			}
+			log.Printf("open error for %v: %v", fullPath, err)
+			http.Error(w, "", 500)
+			return
+		}
+		defer f.Close()
+		if flagVerbose {
+			log.Printf("Serving %v", fi.Name())
+		}
+		http.ServeContent(w, r, fi.Name(), fi.ModTime(), f)
+		return
+	}
+
+	/*
+		// TODO: do we want that?
+		if checkLastModified(w, r, fi.ModTime()) {
+			return
+		}
+	*/
+
+	serveDir(w, r, fullPath)
+}
+
+func serveDir(w http.ResponseWriter, r *http.Request, fullPath string) {
+	f, err := os.Open(fullPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			http.NotFound(w, r)
+			return
+		}
+		log.Printf("open error for %v: %v", fullPath, err)
+		http.Error(w, "", 500)
+		return
+	}
+	defer f.Close()
+	ent, err := f.Readdirnames(-1)
+	if err != nil {
+		if os.IsNotExist(err) {
+			http.NotFound(w, r)
+			return
+		}
+		log.Printf("readdir error for %v: %v", fullPath, err)
+		http.Error(w, "", 500)
+		return
+	}
+
+	data, err := json.Marshal(&ent)
+	if err != nil {
+		log.Printf("json marshal error for %v: %v", fullPath, err)
+		http.Error(w, "", 500)
+		return
+	}
+	w.Write(data)
+}
+
+type srcServer struct{}
+
+func (s srcServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, filepath.Join(flagCodeDir, r.URL.Path))
 }
 
 type allHandler struct {
@@ -247,19 +322,26 @@ func (ah allHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func Server() {
-	sh := basicauth.UserPassHandler{
+	srcHandler := basicauth.UserPassHandler{
+		UP: up,
+		H:  srcServer{},
+	}
+
+	dataHandler := basicauth.UserPassHandler{
+		UP: up,
+		H:  dataServer{},
+	}
+
+	rawHandler := basicauth.UserPassHandler{
 		UP: up,
 		H: allHandler{
 			fs: fileServer{},
 		},
 	}
 
-	if flagUrlPrefix != "" {
-		flagUrlPrefix = strings.TrimSuffix(flagUrlPrefix, "/")
-		http.Handle(flagUrlPrefix+"/", &sh)
-	} else {
-		http.Handle("/", &sh)
-	}
+	http.Handle(dataPrefix, &dataHandler)
+	http.Handle(rawdataPrefix, &rawHandler)
+	http.Handle("/", &srcHandler)
 
 	log.Fatal(http.ListenAndServe(flagHost, nil))
 }
