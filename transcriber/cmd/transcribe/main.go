@@ -130,6 +130,13 @@ func main() {
 
 		asFloats, asInts, err := getSamples(factor)
 		if err != nil {
+			if errors.Is(err, stopFetchingErr) {
+				pausedMu.Lock()
+				paused = true
+				pausedMu.Unlock()
+				log.Printf("controller directly indicated to stop fetching audio, complying")
+				continue
+			}
 			log.Printf("while getting audio samples: %v", err)
 			continue
 		}
@@ -288,6 +295,9 @@ func getSamples(factor float64) ([]float32, []int, error) {
 	return asFloats, asInts, nil
 }
 
+var stopFetchingErr error = errors.New("stop fetching audio")
+
+// returns stopFetchingErr when the controller replied with a retry-after=-1
 func getAudio() ([]byte, error) {
 	// this is unrelated to Retry-After, this is for dealing when the audio source
 	// server is not up (yet), with an exponential back-off.
@@ -336,6 +346,12 @@ func getAudio() ([]byte, error) {
 		sleep, err := strconv.Atoi(retry)
 		if err != nil {
 			return nil, fmt.Errorf("while converting Retry-After header: %v", err)
+		}
+		// it is ok that we decide by ourselves that we should stop fetching,
+		// without informing the collector, because the collector does not
+		// actually keep track of whether we are recording audio or not.
+		if sleep == -1 {
+			return nil, stopFetchingErr
 		}
 		time.Sleep(time.Duration(sleep) * time.Second)
 	}
