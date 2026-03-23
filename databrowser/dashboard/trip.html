@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Session Detail</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+
+<body>
+
+<script src="assets/lucide.min.js"></script>
+
+<div class="container">
+
+  <div class="trip-header">
+    <button class="back-btn" onclick="history.back()">
+      <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
+      Back to Trips
+    </button>
+    <h1 id="page-title"></h1>
+  </div>
+
+  <div class="categories" id="categories"></div>
+
+  <p class="footer" id="footer"></p>
+
+</div>
+
+<script>
+  const categories = [
+    { id: 'video',       name: 'Video',        icon: 'video' },
+    { id: 'audio',       name: 'Audio',        icon: 'mic' },
+    { id: 'transcript',  name: 'Transcript',   icon: 'file-text' },
+    { id: 'gps',         name: 'GPS',          icon: 'map-pin' },
+    { id: 'buttonpress', name: 'Button Press', icon: 'power' },
+  ];
+
+  // Gets date from the URL e.g. ?date=2026-03-20
+  const params = new URLSearchParams(window.location.search);
+  const dateStr = params.get('date') || new Date().toISOString().slice(0, 10);
+  const date = new Date(`${dateStr}T12:00:00Z`);
+
+  // Formats the date as "20 March 2026" for page heading
+  const formatted = date.toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC'
+  });
+  const weekday = date.toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' });
+
+  document.getElementById('page-title').textContent = formatted;
+  document.title = formatted;
+  const container = document.getElementById('categories');
+
+  // Fetches the session folder listing to see which category subfolders exist
+  async function getPresentCategories() {
+    try {
+      const res = await fetch(`/data/${dateStr}/`);
+      const folders = await res.json();
+      return categories.filter(cat => folders.includes(cat.id));
+    } catch (e) {
+      console.error('Could not check category folders:', e);
+      return categories;
+    }
+  }
+
+  // Fetches present categories then renders only those cards
+  getPresentCategories().then(present => {
+    present.forEach((cat, index) => {
+      const a = document.createElement('a');
+      a.className = 'card category-card';
+      a.href = `files.html?date=${dateStr}&category=${cat.id}`;
+      a.style.animationDelay = `${index * 0.05}s`;
+      a.innerHTML = `
+        <div class="card-left">
+          <div class="card-icon">
+            <i data-lucide="${cat.icon}" style="width:22px;height:22px;"></i>
+          </div>
+          <div>
+            <div class="card-name">${cat.name}</div>
+          </div>
+        </div>
+        <span class="chevron">
+          <i data-lucide="chevron-right" style="width:18px;height:18px;"></i>
+        </span>
+      `;
+      container.appendChild(a);
+      requestAnimationFrame(() => requestAnimationFrame(() => a.classList.add('visible')));
+    });
+
+    lucide.createIcons();
+  });
+
+  lucide.createIcons();
+</script>
+
+</body>
+</html>
