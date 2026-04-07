@@ -1,0 +1,54 @@
+name: Go CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+# Coverage reporting is intentionally omitted for now.
+# It can be added once test coverage improves.
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y zstd
+
+      - name: Build and test all modules
+        run: |
+          # Run go build and test for each module except transcriber,
+          # which requires CGO and the whisper.cpp C library.
+          modules=(
+            ap
+            cellular
+            collector
+            databrowser
+            dev
+            gateway
+            gc
+            gengps
+            marlin-common
+            syslogd
+            usbnet
+          )
+          for mod in "${modules[@]}"; do
+            if [ -f "$mod/go.mod" ]; then
+              echo "=== $mod ==="
+              cd "$mod"
+              go build ./...
+              # go vet temporarily omitted due to existing vet warnings
+              # in production code. Re-enable once those are resolved.
+              go test ./...
+              cd ..
+            fi
+          done

@@ -76,6 +76,9 @@ func TestColdLogFileNamesSingle(t *testing.T) {
 }
 
 func TestCompressFile(t *testing.T) {
+	if _, err := exec.LookPath("zstdcat"); err != nil {
+		t.Skip("zstdcat not found in PATH")
+	}
 	const contents = "hello syslog"
 	fn := filepath.Join(t.TempDir(), "2022-08-10.log")
 	if err := os.WriteFile(fn, []byte(contents), 0644); err != nil {
