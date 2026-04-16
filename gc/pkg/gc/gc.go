@@ -152,7 +152,7 @@ func (g GGC) Run() error {
 		}
 		return nil
 	}
-	log.Printf("Storage used (%4.2f) above threshold (%4.2f), GC run needed", u, g.Threshold)
+	log.Printf("Storage used (%4.2f) above threshold (%4.2f), starting GC run", u, g.Threshold)
 
 	cl, err := share.NewClientFromConnectionString(g.ConnString, g.Vessel, nil)
 	if err != nil {

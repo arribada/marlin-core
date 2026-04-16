@@ -90,22 +90,9 @@ func initOutDir() error {
 }
 
 // Every flagGCInterval,
-// runGCs starts an audioGC pass,
-// then a generic collector pass, if needed,
-// and finally an aggressive generic collector pass, if still needed.
+// runGCs starts a generic collector pass, if needed.
 func runGCs() error {
-	// TODO: maybe just actually remove the audioGC once the generic once works?
-	ag := gc.AudioGC{
-		RootDir:     flagRootDir,
-		Verbose:     flagVerbose,
-		GracePeriod: flagGCGracePeriod,
-	}
 	for {
-		log.Printf("Starting an audio GC run")
-		if err := ag.Run(); err != nil {
-			return err
-		}
-
 		gg := gc.GGC{
 			ConnString: flagConnString,
 			Vessel:     flagVessel,
@@ -119,16 +106,6 @@ func runGCs() error {
 		log.Printf("Starting a generic GC run")
 		if err := gg.Run(); err != nil {
 			return err
-		}
-
-		if w, _ := gg.WantSpace(); w {
-			if flagAggressive {
-				gg.Aggressive = true
-				log.Printf("Starting an aggressive generic GC run")
-				if err := gg.Run(); err != nil {
-					return err
-				}
-			}
 		}
 
 		time.Sleep(time.Duration(flagGCInterval) * time.Second)
