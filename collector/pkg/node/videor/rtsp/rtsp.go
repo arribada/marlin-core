@@ -266,11 +266,6 @@ func tcpPing(reqOrigin, dest string, timeout time.Duration) error {
 	return nil
 }
 
-func (v *Videor) Stop(cancel context.CancelFunc) {
-	log.Printf("Video recorder stopped")
-	cancel()
-}
-
 func (v *Videor) handleRequest(start bool) {
 	log.Printf("Video recorder: handling external request")
 
@@ -330,6 +325,9 @@ func (v *Videor) startListen(ctx context.Context) {
 	v.handleRequest(true)
 }
 
+// TODO: now that we have a retry mechanism in the caller (the
+// collector main), see if we want to try less hard in recordLoop and
+// actually return errors.
 func (v *Videor) recordLoop(ctx context.Context) {
 	autoRestartBackoff := time.Second
 	maxBackoff := 300 * time.Second

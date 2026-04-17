@@ -7,13 +7,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
-	"github.com/arribada/marlin-core/collector/pkg/logger"
 	"github.com/arribada/marlin-core/collector/pkg/types"
-	klog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 )
 
 const (
@@ -30,41 +28,29 @@ type Config struct {
 	TranscriberURL string
 }
 
-func New(lgr klog.Logger, ctx context.Context, cfg Config, theChans *types.Chans) (*Controller, error) {
-	lgr, err := logger.ApplyFilter("info", lgr)
-	if err != nil {
-		return nil, err
-	}
-	ctx, close := context.WithCancel(ctx)
-
+func New(cfg Config, theChans *types.Chans) (*Controller, error) {
 	j := &Controller{
-		klogger:             klog.With(lgr, "component", ComponentName),
-		ctx:                 ctx,
 		chans:               theChans,
-		close:               close,
 		host:                cfg.Host,
 		audioTranscriberURL: cfg.TranscriberURL,
+		verbose:             cfg.Verbose,
 	}
 
 	return j, nil
 }
 
 type Controller struct {
-	klogger             klog.Logger
 	ctx                 context.Context
 	chans               *types.Chans
-	close               context.CancelFunc
 	host                string
 	audioTranscriberURL string
+	verbose             bool
 }
 
-// TODO: it'd be nice to reuse that code for all our messages listeners,
-// but oh well.
 func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	_ = level.Info(c.klogger).Log("msg", "got button request")
-
 	if r.URL.Path != startPrefix && r.URL.Path != stopPrefix {
 		http.Error(w, "invalid command", 404)
+		return
 	}
 
 	if r.URL.Path == startPrefix {
@@ -84,51 +70,62 @@ func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (c *Controller) buttonPressEvent(start bool) {
 	select {
 	case c.chans.ButtonPress <- start:
-		_ = level.Debug(c.klogger).Log("msg", "button press event sent to watcher")
+		if c.verbose {
+			log.Printf("controller handler: button press event sent to watcher")
+		}
 	case <-time.After(time.Second):
-		_ = level.Debug(c.klogger).Log("msg", "time out on sending button press event")
+		if c.verbose {
+			log.Printf("controller handler: time out on sending button press event")
+		}
 	}
 }
 
-func (c *Controller) Run() error {
-	_ = level.Info(c.klogger).Log("msg", "starting")
+func (c *Controller) Run(ctx context.Context) error {
+	log.Printf("controller handler starting")
 
 	mux := http.NewServeMux()
 	mux.Handle("/", c)
-	errC := make(chan error)
+	srv := http.Server{
+		Addr:    c.host,
+		Handler: mux,
+	}
+
+	idleConnsClosed := make(chan struct{})
 	go func() {
-		_ = level.Info(c.klogger).Log("msg", fmt.Sprintf("Starting to serve for HTTP for start/stop signals on %s", c.host))
-		if err := http.ListenAndServe(c.host, mux); err != nil {
-			select {
-			case errC <- fmt.Errorf("while starting HTTP server for start/stop signals: %v", err):
-			case <-time.After(time.Second):
-			}
+		<-ctx.Done()
+		log.Printf("shutting down controller handler")
+		if err := srv.Shutdown(context.Background()); err != nil {
+			// Error from closing listeners, or context timeout:
+			log.Printf("while shutting down controller handler: %v", err)
 		}
+		close(idleConnsClosed)
 	}()
 
-	select {
-	case err := <-errC:
-		return err
-	case <-c.ctx.Done():
-		return nil
+	log.Printf("Starting to serve for HTTP for start/stop signals on %s", c.host)
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		return fmt.Errorf("controller handler error: %v", err)
 	}
+	log.Printf("waiting for idle connections")
+	<-idleConnsClosed
+	log.Printf("idle connections terminated")
+	return nil
 }
 
 func (c *Controller) handleStart() {
 	if err := c.startAudio(); err != nil {
-		logger.LogAndSend(fmt.Sprintf("while calling audio recorder start: %v", err))
+		log.Printf("while calling audio recorder start: %v", err)
 	}
 	if err := c.videoRec(true); err != nil {
-		logger.LogAndSend(fmt.Sprintf("while calling video recorder start: %v", err))
+		log.Printf("while calling video recorder start: %v", err)
 	}
 }
 
 func (c *Controller) handleStop() {
 	if err := c.stopAudio(); err != nil {
-		logger.LogAndSend(fmt.Sprintf("while calling audio recorder stop: %v", err))
+		log.Printf("while calling audio recorder stop: %v", err)
 	}
 	if err := c.videoRec(false); err != nil {
-		logger.LogAndSend(fmt.Sprintf("while calling video recorder stop: %v", err))
+		log.Printf("while calling video recorder stop: %v", err)
 	}
 }
 
@@ -167,7 +164,9 @@ func (c *Controller) videoRec(start bool) error {
 
 	select {
 	case c.chans.VideoCtrl <- start:
-		_ = level.Debug(c.klogger).Log("msg", "video recorder request sent")
+		if c.verbose {
+			log.Printf("controller handler: video recorder request sent")
+		}
 		select {
 		case c.chans.VideoState <- start:
 			return nil
@@ -177,10 +176,4 @@ func (c *Controller) videoRec(start bool) error {
 	case <-time.After(time.Second):
 		return errors.New("time out on sending video recorder request")
 	}
-}
-
-func (c *Controller) Stop() {
-	c.close()
-
-	_ = level.Info(c.klogger).Log("msg", "stopped")
 }

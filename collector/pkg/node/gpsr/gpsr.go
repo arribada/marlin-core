@@ -24,8 +24,6 @@ import (
 	"github.com/arribada/marlin-core/collector/pkg/types"
 
 	"github.com/adrianmo/go-nmea"
-	klog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"go.bug.st/serial"
 	"go.bug.st/serial/enumerator"
 )
@@ -35,7 +33,6 @@ const ComponentName = "gps recorder"
 type Config struct {
 	CaptureDevice string
 	DataDir       string
-	// TODO: use Verbose instead of klogger
 	Verbose       bool
 	Enabled       bool
 	SplitDuration time.Duration
@@ -45,8 +42,7 @@ type Config struct {
 }
 
 type GPSr struct {
-	klogger klog.Logger
-	config  Config
+	config Config
 
 	fakeDevice bool // for synthetic data
 	// dilution of precision. should be < 0 until initialized by the first GGA
@@ -79,8 +75,7 @@ func trimRMC(rmc nmea.RMC) datatype.SRMC {
 	}
 }
 
-// TODO: remove klog
-func New(lgr klog.Logger, cfg Config, posChan chan types.Position) (*GPSr, error) {
+func New(cfg Config, posChan chan types.Position) (*GPSr, error) {
 	if cfg.CaptureDevice == "" {
 		dev, err := findSerialUSBDevice(cfg.SatDeviceID, false)
 		if err != nil {
@@ -94,13 +89,8 @@ func New(lgr klog.Logger, cfg Config, posChan chan types.Position) (*GPSr, error
 		fakeDevice = true
 	}
 
-	lgr, err := logger.ApplyFilter("info", lgr)
-	if err != nil {
-		return nil, err
-	}
 	return &GPSr{
 		fakeDevice: fakeDevice,
-		klogger:    klog.With(lgr, "component", ComponentName),
 		config:     cfg,
 		dop:        -1,
 		posChan:    posChan,
@@ -108,13 +98,15 @@ func New(lgr klog.Logger, cfg Config, posChan chan types.Position) (*GPSr, error
 }
 
 func (g *GPSr) Run(ctx context.Context) error {
-	_ = level.Info(g.klogger).Log("msg", "starting")
+	log.Printf("GPS recorder starting")
 
 	if err := os.MkdirAll(g.config.DataDir, os.ModePerm); err != nil {
 		return fmt.Errorf("while creating root destination dir %v: %w", g.config.DataDir, err)
 	}
 
-	go g.listenPosChan(ctx)
+	subCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go g.listenPosChan(subCtx)
 
 	return g.recording(ctx)
 }
@@ -132,24 +124,15 @@ func (g *GPSr) listenPosChan(ctx context.Context) {
 	}
 }
 
-func (g *GPSr) Stop(cancel context.CancelFunc) {
-	_ = level.Info(g.klogger).Log("msg", "stopped")
-	cancel()
-}
-
 type Request struct {
 	Start bool
 	Stop  bool
 }
 
 func (g *GPSr) recording(ctx context.Context) error {
-	logger.LogAndSend("Starting perpetual GPS recording")
-	defer func() {
-		_ = level.Info(g.klogger).Log("msg", "recording stopped")
-	}()
+	log.Printf("Starting perpetual GPS recording")
+	defer log.Printf("GPS recording stopped")
 
-	pause := time.Second
-	maxPause := 300 * time.Second
 	for {
 		err := g.record(ctx)
 		select {
@@ -157,18 +140,8 @@ func (g *GPSr) recording(ctx context.Context) error {
 			return err
 		default:
 		}
-		if err == nil {
-			// just terminated a split, keep going
-			maxPause = time.Second
-			continue
-		}
-
-		logger.LogAndSend(fmt.Sprintf("GPS recording error: %v", err), true)
-		logger.LogAndSend(fmt.Sprintf("Restarting GPS recording in %d seconds", int(pause.Seconds())))
-		time.Sleep(pause)
-		pause *= 2
-		if pause > maxPause {
-			pause = maxPause
+		if err != nil {
+			return fmt.Errorf("GPS recording error: %v", err)
 		}
 	}
 }
@@ -199,7 +172,7 @@ func (g *GPSr) record(ctx context.Context) (err error) {
 }
 
 func (g *GPSr) recordWithDuration(ctx context.Context, port io.ReadCloser, timeout time.Duration) (err error) {
-	_ = level.Info(g.klogger).Log("msg", fmt.Sprintf("starting new recording for %v", timeout))
+	log.Printf("GPS: starting new recording for %v", timeout)
 	tm := time.NewTimer(timeout)
 	g.rmc = []datatype.SRMCplus{}
 
@@ -231,10 +204,14 @@ func (g *GPSr) recordWithDuration(ctx context.Context, port io.ReadCloser, timeo
 		<-canRead
 		select {
 		case <-ctx.Done():
-			_ = level.Debug(g.klogger).Log("msg", "recording interrupted")
+			if g.config.Verbose {
+				log.Printf("GPS: recording interrupted")
+			}
 			return errors.New("interrupted")
 		case <-tm.C:
-			_ = level.Debug(g.klogger).Log("msg", "recording part reached maximum size")
+			if g.config.Verbose {
+				log.Printf("GPS: recording part reached maximum size")
+			}
 			return nil
 		default:
 		}
@@ -282,10 +259,7 @@ func (g *GPSr) finalize(oldErr error) error {
 	if rnErr := os.Rename(name, newName); rnErr != nil {
 		return utils.MaybeWrap(rnErr, oldErr, fmt.Sprintf("while renaming file %v", name))
 	}
-	_ = level.Info(g.klogger).Log("msg", "recording saved", "path", newName)
-	if g.config.Verbose {
-		log.Println("GPS recording saved:", newName)
-	}
+	log.Printf("GPS: recording saved: %v", newName)
 
 	return oldErr
 }
@@ -336,12 +310,16 @@ func (g *GPSr) parseGPS(l string) (bool, error) {
 	}
 
 	if rmc.Validity == "V" {
-		_ = level.Debug(g.klogger).Log("msg", "ignoring invalid RMC data")
+		if g.config.Verbose {
+			log.Printf("GPS: ignoring invalid RMC data")
+		}
 		return false, nil
 	}
 
 	if !rmc.Date.Valid || !rmc.Time.Valid {
-		_ = level.Debug(g.klogger).Log("msg", "ignoring RMC data with invalid date or time")
+		if g.config.Verbose {
+			log.Printf("GPS: ignoring RMC data with invalid date or time")
+		}
 		return false, nil
 	}
 

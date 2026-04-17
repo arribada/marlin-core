@@ -29,8 +29,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/fileerror"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share"
 	"github.com/fsnotify/fsnotify"
-	klog "github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 )
 
 const ComponentName = "data watcher"
@@ -58,7 +56,6 @@ type Config struct {
 }
 
 type EventsWatcher struct {
-	klogger klog.Logger
 	config  Config
 	watcher *fsnotify.Watcher
 
@@ -83,13 +80,9 @@ type EventsWatcher struct {
 	lastButtonPress   time.Time
 }
 
-func New(lgr klog.Logger, cfg Config, theChans *types.Chans) (*EventsWatcher, error) {
+func New(cfg Config, theChans *types.Chans) (*EventsWatcher, error) {
 	if theChans == nil {
 		return nil, errors.New("chans not provided")
-	}
-	lgr, err := logger.ApplyFilter("info", lgr)
-	if err != nil {
-		return nil, err
 	}
 
 	// TODO: do it in a central place (as early as in pkg/config). or in every node?
@@ -103,7 +96,6 @@ func New(lgr klog.Logger, cfg Config, theChans *types.Chans) (*EventsWatcher, er
 	}
 
 	ew := &EventsWatcher{
-		klogger: klog.With(lgr, "component", ComponentName),
 		config:  cfg,
 		watcher: wtchr,
 	}
@@ -298,6 +290,8 @@ func isButtonPress(name string) bool {
 }
 
 func (sw *EventsWatcher) Run(ctx context.Context) error {
+	defer sw.watcher.Close()
+
 	go sw.up.loop(ctx)
 	go sw.du.loop(ctx)
 
@@ -325,7 +319,7 @@ func (sw *EventsWatcher) Run(ctx context.Context) error {
 			if !ok {
 				panic("Errors chan unexpectedly closed")
 			}
-			logger.LogAndSend(fmt.Sprintf("file watcher error: %v", err))
+			log.Printf("file watcher error: %v", err)
 		}
 	}
 }
@@ -387,7 +381,9 @@ func (ew *EventsWatcher) handleEvent(event fsnotify.Event) {
 	}
 
 	if isGPS(name) {
-		_ = level.Debug(ew.klogger).Log("msg", fmt.Sprintf("New gps file detected: %s", name))
+		if ew.config.Verbose {
+			log.Printf("New gps file detected: %s", name)
+		}
 		go func() {
 			if _, err := ew.archiveFile(datatype.GPS, fullPath); err != nil {
 				logger.LogAndSend(fmt.Sprintf("error while archiving file %s: %v", fullPath, err))
@@ -409,12 +405,6 @@ func (ew *EventsWatcher) handleEvent(event fsnotify.Event) {
 	}
 
 	log.Println("Unsupported file, doing nothing: ", name)
-}
-
-func (sw *EventsWatcher) Stop(cancel context.CancelFunc) {
-	_ = level.Info(sw.klogger).Log("msg", "stopped")
-	cancel()
-	sw.watcher.Close()
 }
 
 func (sw *EventsWatcher) archiveFile(dataType int, fullPath string) (string, error) {

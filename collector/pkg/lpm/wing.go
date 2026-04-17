@@ -55,7 +55,6 @@ type WingParams struct {
 	Rconf  string
 }
 
-// TODO: make sat errors non critical to the rest of the collector?
 func Run(cfg Config, ctx context.Context) error {
 	if !cfg.Enabled {
 		return nil
@@ -97,7 +96,8 @@ func Run(cfg Config, ctx context.Context) error {
 }
 
 // coping mechanism for the fact that one time out of two, first message ends up in failure.
-// TODO: investigate why.
+// TODO: investigate why. And when we figure it out, remove the
+// whole retry mechanism, as we have one at the caller level now.
 func initRetry(cfg Config, ctx context.Context) {
 	pause := time.Second
 	maxPause := 5 * time.Minute
@@ -121,17 +121,16 @@ func initRetry(cfg Config, ctx context.Context) {
 		}
 		log.Printf("sat comms: while setting up SMD: %v", err)
 		log.Printf("sat comms: retrying in %v", pause)
-		time.Sleep(pause)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(pause):
+		}
 		pause *= 2
 		if pause > maxPause {
 			pause = maxPause
 		}
 	}
-}
-
-func Stop(cancel context.CancelFunc) {
-	log.Printf("sat comms stopped")
-	cancel()
 }
 
 func wingParamsMessage(params WingParams) *pb.CoreMessage {

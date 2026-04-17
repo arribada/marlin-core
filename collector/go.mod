@@ -11,7 +11,6 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-kit/kit v0.10.0
 	github.com/mpl/basicauth v0.0.0-20250721104714-3b2305e49960
-	github.com/oklog/run v1.1.1-0.20200508094559-c7096881717e
 	github.com/pion/rtp v1.10.0
 	github.com/pkg/errors v0.9.1
 	go.bug.st/serial v1.6.2

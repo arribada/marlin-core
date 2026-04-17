@@ -26,6 +26,7 @@ func (c *cfgHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(data)
 }
 
+// TODO: redundant with report from databrowser? Move everything in here to databrowser anyway?
 type duHandler struct {
 	w *watcher.DuWatcher
 }

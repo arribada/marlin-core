@@ -9,7 +9,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/arribada/marlin-core/collector/pkg/logger"
 	"github.com/arribada/marlin-core/collector/pkg/node/gpsr"
 )
 
@@ -24,12 +23,10 @@ func init() {
 func main() {
 	flag.Parse()
 
-	logger := logger.NewLogger()
-
 	dataDir := "./gpsdata"
 	log.Printf("Datadir: %v", dataDir)
 
-	gps, err := gpsr.New(logger, gpsr.Config{
+	gps, err := gpsr.New(gpsr.Config{
 		CaptureDevice: flagDevice,
 		DataDir:       dataDir,
 		BaudRate:      9600,

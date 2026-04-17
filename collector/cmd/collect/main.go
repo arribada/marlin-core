@@ -5,12 +5,14 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"runtime"
+	"sync"
 	"syscall"
 	"time"
 
@@ -25,20 +27,11 @@ import (
 	"github.com/arribada/marlin-core/collector/pkg/types"
 	"github.com/arribada/marlin-core/collector/pkg/watcher"
 	"github.com/mpl/basicauth"
-
-	"github.com/go-kit/kit/log/level"
-	"github.com/oklog/run"
 )
 
 var theChans types.Chans
 
 func main() {
-
-	lgr := logger.NewLogger()
-	ctxGlobal := context.Background()
-
-	//	cfg, err := config.Parse(cli.ConfigPath)
-	// ExitOnErr(err, "while loading config")
 	cfg, err := config.Parse()
 	if err != nil {
 		log.Fatalf("while loading configuration: %v", err)
@@ -53,136 +46,204 @@ func main() {
 
 	go getReport(cfg.ReportURL)
 
-	var g run.Group
+	var wg sync.WaitGroup
+	startServices(context.Background(), &wg, cfg)
 
-	// Run groups.
-	{
-		g.Add(run.SignalHandler(context.Background(), syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM))
+	wg.Wait()
+	log.Printf("Collector terminated")
+}
 
-		// TODO: do we actually still want that??
-		// Serve our config and other utilities.
-		{
-			srv := gui.New(":8080", cfg)
-			g.Add(func() error {
-				_ = level.Info(lgr).Log("msg", "starting web server", "addr", srv.Addr)
-				if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-					return err
-				}
-				return nil
-			}, func(error) {
-				if err := srv.Close(); err != nil {
-					log.Printf("while closing srv: %v", err)
-				}
-			})
+// all the services are independent from each other, and each run
+// in their own goroutine, with the same child context.
+// The signal handler is the only one which can cancel (all) the
+// others, through the cancellation function of the parent context.
+func startServices(ctx context.Context, wg *sync.WaitGroup, cfg *config.Config) {
+	subCtx, cancel := context.WithCancel(ctx)
+	// runSignalHandler should always be first
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		runSignalHandler(cancel)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		runConfigserver(subCtx, cfg)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		runSatComms(subCtx, cfg.Sat)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		runGPS(subCtx, cfg.GPSr)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		runVideo(subCtx, cfg.VideorRTSP)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		runDataWatcher(subCtx, cfg.DataWatcher)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		runController(subCtx, cfg.Controller)
+	}()
+}
+
+func retry(ctx context.Context, serviceName string, do func()) {
+	// TODO: maybe add some jitter, but we only have a handful of services
+	// at most restarting at the same time, so no big deal.
+	pause := time.Second
+	maxPause := 5 * time.Minute
+	for {
+		select {
+		case <-ctx.Done():
+			log.Printf("retry loop for %v interrupted by context", serviceName)
+			return
+		default:
 		}
-
-		// Sat comms
-		if cfg.Sat.Enabled {
-			ctx, cancel := context.WithCancel(context.Background())
-			g.Add(func() error {
-				if err := lpm.Run(cfg.Sat, ctx); err != nil {
-					return fmt.Errorf("sat comms error: %v", err)
-				}
-				return nil
-			}, func(error) {
-				lpm.Stop(cancel)
-			})
+		do()
+		log.Printf("retrying %v in %fs", serviceName, pause.Seconds())
+		select {
+		case <-ctx.Done():
+			log.Printf("retry loop for %v interrupted by context", serviceName)
+			return
+		case <-time.After(pause):
 		}
-
-		// GPS recorder.
-		if cfg.GPSr.Enabled {
-			theChans.Position = make(chan types.Position)
-			gps, err := gpsr.New(lgr, cfg.GPSr, theChans.Position)
-			if err != nil {
-				log.Fatalf("while initializing GPS recorder: %v", err)
-			}
-			ctx, cancel := context.WithCancel(context.Background())
-
-			g.Add(func() error {
-				if err := gps.Run(ctx); err != nil {
-					return fmt.Errorf("gps recorder error: %v", err)
-				}
-				return nil
-			}, func(error) {
-				gps.Stop(cancel)
-			})
-		}
-
-		// Video RTSP recorder.
-		if cfg.VideorRTSP.Enabled {
-			theChans.VideoCtrl = make(chan bool)
-			vid, err := rtsp.New(cfg.VideorRTSP, theChans.VideoCtrl)
-			if err != nil {
-				log.Fatalf("while initializing videor recorder: %v", err)
-			}
-			ctx, cancel := context.WithCancel(context.Background())
-
-			g.Add(func() error {
-				if err := vid.Run(ctx); err != nil {
-					return fmt.Errorf("video recorder error: %v", err)
-				}
-				return nil
-			}, func(error) {
-				vid.Stop(cancel)
-			})
-		}
-
-		// Data watcher
-		if cfg.DataWatcher.Enabled {
-			theChans.VideoState = make(chan bool)
-			theChans.ButtonPress = make(chan bool)
-			dw, err := watcher.New(lgr, cfg.DataWatcher, &theChans)
-			if err != nil {
-				log.Fatalf("while initializing data watcher: %v", err)
-			}
-			ctx, cancel := context.WithCancel(context.Background())
-
-			g.Add(func() error {
-				if err := dw.Run(ctx); err != nil {
-					return fmt.Errorf("data watcher error: %v", err)
-				}
-				return nil
-			}, func(error) {
-				dw.Stop(cancel)
-			})
-		}
-
-		// Signal handler, and start/stop controller.
-		if cfg.Controller.Enabled {
-			ctrl, err := controller.New(lgr, ctxGlobal, cfg.Controller, &theChans)
-			if err != nil {
-				log.Fatalf("while initializing the start/stop controller: %v", err)
-			}
-			g.Add(func() error {
-				if err := ctrl.Run(); err != nil {
-					return fmt.Errorf("controller handler error: %v", err)
-				}
-				return nil
-			}, func(error) {
-				ctrl.Stop()
-			})
-		}
-
-		// error simulator for testing actors graceful termination
-		if false {
-			_, cancel := context.WithCancel(context.Background())
-			g.Add(func() error {
-				time.Sleep(time.Minute)
-				return errors.New("simulated error")
-			}, func(err error) {
-				println("error received by simulator:", err.Error())
-				cancel()
-			})
-		}
-
-		if err := g.Run(); err != nil {
-			// Use %+v for github.com/pkg/errors error to print with stack.
-			// log.Printf("%+v\n", errors.Wrapf(err, "run group stacktrace"))
-			log.Fatalf("%v\n", err)
+		pause *= 2
+		if pause > maxPause {
+			pause = maxPause
 		}
 	}
+}
 
-	_ = level.Info(lgr).Log("msg", "exiting")
+func runSignalHandler(cancel context.CancelFunc) {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(c)
+	sig := <-c
+	log.Printf("Interrupted by signal: %v", sig)
+	cancel()
+}
+
+func runConfigserver(ctx context.Context, cfg *config.Config) {
+	// TODO: all in a retry as well?
+	srv := gui.New(":8080", cfg)
+
+	idleConnsClosed := make(chan struct{})
+	go func() {
+		<-ctx.Done()
+		log.Printf("shutting down config server")
+		if err := srv.Shutdown(context.Background()); err != nil {
+			// Error from closing listeners, or context timeout:
+			log.Printf("while shutting down config server: %v", err)
+		}
+		close(idleConnsClosed)
+	}()
+
+	log.Printf("Starting web server on %v", srv.Addr)
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Printf("config server error: %v", err)
+		return
+	}
+	log.Printf("waiting for idle connections")
+	<-idleConnsClosed
+	log.Printf("idle connections terminated")
+}
+
+func runSatComms(ctx context.Context, cfg lpm.Config) {
+	if !cfg.Enabled {
+		return
+	}
+	retry(ctx, "Sat comms", func() {
+		if err := lpm.Run(cfg, ctx); err != nil {
+			log.Printf("sat comms error: %v", err)
+		}
+	})
+}
+
+func runGPS(ctx context.Context, cfg gpsr.Config) {
+	if !cfg.Enabled {
+		return
+	}
+	theChans.Position = make(chan types.Position)
+	retry(ctx, "GPS recorder", func() {
+		gps, err := gpsr.New(cfg, theChans.Position)
+		if err != nil {
+			log.Printf("while initializing GPS recorder: %v", err)
+			return
+		}
+		if err := gps.Run(ctx); err != nil {
+			log.Printf("gps recorder error: %v", err)
+		}
+	})
+}
+
+func runVideo(ctx context.Context, cfg rtsp.Config) {
+	if !cfg.Enabled {
+		return
+	}
+	theChans.VideoCtrl = make(chan bool)
+	retry(ctx, "Video recorder", func() {
+		vid, err := rtsp.New(cfg, theChans.VideoCtrl)
+		if err != nil {
+			log.Printf("while initializing Video recorder: %v", err)
+			return
+		}
+
+		if err := vid.Run(ctx); err != nil {
+			log.Printf("video recorder error: %v", err)
+		}
+	})
+}
+
+func runDataWatcher(ctx context.Context, cfg watcher.Config) {
+	if !cfg.Enabled {
+		return
+	}
+	theChans.VideoState = make(chan bool)
+	theChans.ButtonPress = make(chan bool)
+	retry(ctx, "Data Watcher", func() {
+		dw, err := watcher.New(cfg, &theChans)
+		if err != nil {
+			log.Printf("while initializing data watcher: %v", err)
+			return
+		}
+
+		if err := dw.Run(ctx); err != nil {
+			log.Printf("data watcher error: %v", err)
+		}
+	})
+}
+
+func runController(ctx context.Context, cfg controller.Config) {
+	if !cfg.Enabled {
+		return
+	}
+	retry(ctx, "Controller Handler", func() {
+		ctrl, err := controller.New(cfg, &theChans)
+		if err != nil {
+			log.Printf("while initializing the start/stop controller: %v", err)
+			return
+		}
+
+		if err := ctrl.Run(ctx); err != nil {
+			log.Printf("controller handler error: %v", err)
+		}
+	})
 }
 
 func getReport(reportURL string) {
