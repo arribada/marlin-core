@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/arribada/marlin-core/collector/pkg/controller"
+	"github.com/arribada/marlin-core/collector/pkg/gpsr"
 	"github.com/arribada/marlin-core/collector/pkg/lpm"
-	"github.com/arribada/marlin-core/collector/pkg/node/gpsr"
-	"github.com/arribada/marlin-core/collector/pkg/node/videor/rtsp"
+	"github.com/arribada/marlin-core/collector/pkg/videor/rtsp"
 	"github.com/arribada/marlin-core/collector/pkg/watcher"
 )
 

@@ -9,7 +9,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/arribada/marlin-core/collector/pkg/node/gpsr"
+	"github.com/arribada/marlin-core/collector/pkg/gpsr"
 )
 
 var (
