@@ -159,9 +159,9 @@ func runConfigserver(ctx context.Context, cfg *config.Config) {
 		log.Printf("config server error: %v", err)
 		return
 	}
-	log.Printf("waiting for idle connections")
+	log.Printf("Config server: waiting for idle connections")
 	<-idleConnsClosed
-	log.Printf("idle connections terminated")
+	log.Printf("Config server: idle connections terminated")
 }
 
 func runSatComms(ctx context.Context, cfg lpm.Config) {

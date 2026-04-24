@@ -105,9 +105,9 @@ func (c *Controller) Run(ctx context.Context) error {
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("controller handler error: %v", err)
 	}
-	log.Printf("waiting for idle connections")
+	log.Printf("Controller handler: waiting for idle connections")
 	<-idleConnsClosed
-	log.Printf("idle connections terminated")
+	log.Printf("Controller handler: idle connections terminated")
 	return nil
 }
 

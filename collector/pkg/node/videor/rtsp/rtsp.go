@@ -37,6 +37,8 @@ const (
 
 var pktTimeout = 5 * time.Second
 
+var logger = log.New(os.Stdout, "Video: ", log.Default().Flags()|log.Lmsgprefix)
+
 type Config struct {
 	// e.g. on Hilook:
 	// rtsp://foo:bar@192.168.87.252:554/Streaming/Channels/101/?transportmode=unicast
@@ -113,7 +115,7 @@ type Videor struct {
 }
 
 func (v *Videor) Run(ctx context.Context) error {
-	log.Printf("Video recorder starting")
+	logger.Printf("recorder starting")
 
 	if err := os.MkdirAll(v.config.DataDir, os.ModePerm); err != nil {
 		return fmt.Errorf("while creating root destination dir %v: %w", v.config.DataDir, err)
@@ -192,9 +194,9 @@ func findCaptureDevice(captureDevice string) (string, error) {
 
 	if len(hosts) > 1 {
 		// TODO: do better. (try getting feed from it?)
-		log.Printf("WARNING: found multiple capture devices (%v), and using first one found (%v)", hosts, hosts[0])
+		logger.Printf("WARNING: found multiple capture devices (%v), and using first one found (%v)", hosts, hosts[0])
 	} else {
-		log.Printf("Using device found at %s for video recording", hosts[0])
+		logger.Printf("Using device found at %s for video recording", hosts[0])
 	}
 
 	return strings.Replace(captureDevice,
@@ -206,6 +208,7 @@ func findCaptureDevice(captureDevice string) (string, error) {
 // ends with ".N", which is the cue that we need to do brute-force
 // finding.
 func needsFinding(captureDevice string) (bool, string, error) {
+	// TODO: see if we want to make that work for public streams (for testing)
 	parts := strings.SplitN(captureDevice, "@", 2)
 	if len(parts) != 2 {
 		return false, "", errors.New("no @ found in captureDevice")
@@ -267,7 +270,7 @@ func tcpPing(reqOrigin, dest string, timeout time.Duration) error {
 }
 
 func (v *Videor) handleRequest(start bool) {
-	log.Printf("Video recorder: handling external request")
+	logger.Printf("handling external request")
 
 	// !start == stop
 	if !start {
@@ -280,28 +283,28 @@ func (v *Videor) handleRequest(start bool) {
 		if v.recordStop == nil {
 			return
 		}
-		log.Printf("Video recorder: stopping the recording")
+		logger.Printf("stopping the recording")
 		v.recordStop()
 		return
 	}
 
 	select {
 	case v.recordStart <- struct{}{}:
-		log.Printf("Video recorder: starting the recording")
+		logger.Printf("starting the recording")
 	default:
-		log.Printf("Video recorder: discarding request, already recording")
+		logger.Printf("discarding request, already recording")
 	}
 }
 
 func (v *Videor) startListen(ctx context.Context) {
-	log.Printf("Video recorder: starting to listen for events")
+	logger.Printf("starting to listen for events")
 	go v.recordLoop(ctx)
 
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Printf("Video recorder: listening event loop terminated")
+				logger.Printf("listening event loop terminated")
 				return
 			case req := <-v.ctrlCh:
 				v.handleRequest(req)
@@ -314,10 +317,10 @@ func (v *Videor) startListen(ctx context.Context) {
 	}
 
 	if v.config.RecAuto {
-		log.Printf("Starting automatic video recording")
+		logger.Printf("Starting automatic video recording")
 	}
 	if v.forever {
-		log.Printf("Starting perpetual video recording")
+		logger.Printf("Starting perpetual video recording")
 	}
 
 	// we are technically racing with recordLoop startup, so let's give it a second
@@ -354,7 +357,7 @@ func (v *Videor) recordLoop(ctx context.Context) {
 		v.recordStopMu.Unlock()
 
 		err := v.record(recordCtx)
-		log.Printf("Video recorder: recording sequence over")
+		logger.Printf("recording sequence over")
 		if err == nil {
 			autoRestartBackoff = time.Second
 			continue
@@ -362,12 +365,13 @@ func (v *Videor) recordLoop(ctx context.Context) {
 
 		// TODO: terminate if it's a critical error, like no storage space anymore?
 		// And use an err chan to propagate the error upwards maybe?
-		log.Printf("Video recording error: %v", err)
+		logger.Printf("recording error: %v", err)
 
 		if !v.forever {
 			continue
 		}
-		// we auto-restart ourselves if we're in forever mode
+		// we auto-restart ourselves if we're in forever mode.
+		// but we still make the auto-restart back off if we're in a loop of systematic error.
 		go func() {
 			time.Sleep(autoRestartBackoff)
 			autoRestartBackoff *= 2
@@ -376,9 +380,9 @@ func (v *Videor) recordLoop(ctx context.Context) {
 			}
 			select {
 			case v.recordStart <- struct{}{}:
-				log.Printf("Auto-restarting video recording")
+				logger.Printf("Auto-restarting recording")
 			case <-time.After(5 * time.Second):
-				log.Printf("Failed to auto-restart video recording")
+				logger.Printf("Failed to auto-restart video recording")
 			}
 		}()
 	}
@@ -397,7 +401,7 @@ func (vr *Videor) record(ctx context.Context) (err error) {
 	}()
 
 	if !vr.forever {
-		log.Printf("starting to record for %v", vr.config.RecTimeout)
+		logger.Printf("starting to record for %v", vr.config.RecTimeout)
 	}
 
 	go func() {
@@ -544,7 +548,7 @@ func (vr *Videor) writeVideoFile(concurrent bool) error {
 	// TODO: maybe make close return an error.
 	vr.muxer.close()
 	if vr.config.Verbose {
-		log.Printf("finished writing %v", tsFile)
+		logger.Printf("(intermediate) recording saved: %v", tsFile)
 	}
 
 	// TODO: remove concurrent mode, when we stop relying on ffmpeg.
@@ -557,7 +561,7 @@ func (vr *Videor) writeVideoFile(concurrent bool) error {
 
 	go func() {
 		if err := vr.writeMP4(tsFile); err != nil {
-			log.Printf("while writing MP4: %v", err)
+			logger.Printf("while writing MP4: %v", err)
 		}
 	}()
 
@@ -580,7 +584,7 @@ func (vr *Videor) writeMP4(tsFile string) error {
 	}
 
 	if vr.config.Verbose {
-		log.Printf("finished writing %v", newName)
+		logger.Printf("recording saved: %v", newName)
 	}
 
 	return nil
@@ -609,12 +613,18 @@ const (
 	discardingFrame = "discarding frame since a RTP packet is missing"
 )
 
+// TODO: a map instead. anyway, make a struct and package for that and the above gross exceptions.
+var lastNonSuppressed time.Time
+
 func (vr *Videor) handlePacket(pkt *rtp.Packet) error {
 	// decode timestamp
 	pts, ok := vr.cl.PacketPTS(vr.media, pkt)
 	if !ok {
 		if vr.config.Verbose {
-			log.Printf("rtp: waiting for timestamp in packet")
+			if lastNonSuppressed.IsZero() || time.Since(lastNonSuppressed) > time.Second {
+				logger.Printf("rtp: waiting for timestamp in packet")
+				lastNonSuppressed = time.Now()
+			}
 		}
 		return nil
 	}
@@ -630,7 +640,7 @@ func (vr *Videor) handlePacket(pkt *rtp.Packet) error {
 				if strings.HasPrefix(err.Error(), discardingFrame) {
 					return nil
 				}
-				log.Printf("rtp decoding error: %v", err)
+				logger.Printf("rtp decoding error: %v", err)
 			}
 			return nil
 		}
@@ -644,7 +654,7 @@ func (vr *Videor) handlePacket(pkt *rtp.Packet) error {
 			if strings.HasPrefix(err.Error(), reorderedFrames) {
 				return nil
 			}
-			log.Printf("while writing H264 stream: %v", err)
+			logger.Printf("while writing H264 stream: %v", err)
 		}
 		return nil
 	}
@@ -658,7 +668,7 @@ func (vr *Videor) handlePackets(ctx context.Context) (fErr error) {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("stopped recording, by context interruption")
+			logger.Printf("stopped recording, by context interruption")
 			if err := vr.writeVideoFile(false); err != nil {
 				return fmt.Errorf("while writing last video file: %v", err)
 			}
@@ -683,7 +693,7 @@ func (vr *Videor) handlePackets(ctx context.Context) (fErr error) {
 			dur := vr.splitDuration()
 			if dur <= 0 {
 				if vr.config.Verbose {
-					log.Printf("recording reached maximum duration")
+					logger.Printf("recording reached maximum duration")
 				}
 				return nil
 			}

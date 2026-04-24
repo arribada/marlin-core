@@ -20,7 +20,6 @@ import (
 
 	"github.com/arribada/marlin-common/pkg/datatype"
 	"github.com/arribada/marlin-common/pkg/utils"
-	"github.com/arribada/marlin-core/collector/pkg/logger"
 	"github.com/arribada/marlin-core/collector/pkg/types"
 
 	"github.com/adrianmo/go-nmea"
@@ -28,7 +27,7 @@ import (
 	"go.bug.st/serial/enumerator"
 )
 
-const ComponentName = "gps recorder"
+var logger = log.New(os.Stdout, "GPS: ", log.Default().Flags()|log.Lmsgprefix)
 
 type Config struct {
 	CaptureDevice string
@@ -83,7 +82,7 @@ func New(cfg Config, posChan chan types.Position) (*GPSr, error) {
 		}
 		cfg.CaptureDevice = dev
 	}
-	log.Printf("GPS capture device: %v", cfg.CaptureDevice)
+	logger.Printf("capture device: %v", cfg.CaptureDevice)
 	fakeDevice := false
 	if !strings.HasPrefix(cfg.CaptureDevice, "/dev") {
 		fakeDevice = true
@@ -98,7 +97,7 @@ func New(cfg Config, posChan chan types.Position) (*GPSr, error) {
 }
 
 func (g *GPSr) Run(ctx context.Context) error {
-	log.Printf("GPS recorder starting")
+	logger.Printf("recorder starting")
 
 	if err := os.MkdirAll(g.config.DataDir, os.ModePerm); err != nil {
 		return fmt.Errorf("while creating root destination dir %v: %w", g.config.DataDir, err)
@@ -130,8 +129,8 @@ type Request struct {
 }
 
 func (g *GPSr) recording(ctx context.Context) error {
-	log.Printf("Starting perpetual GPS recording")
-	defer log.Printf("GPS recording stopped")
+	logger.Printf("Starting perpetual recording")
+	defer logger.Printf("recording stopped")
 
 	for {
 		err := g.record(ctx)
@@ -141,7 +140,7 @@ func (g *GPSr) recording(ctx context.Context) error {
 		default:
 		}
 		if err != nil {
-			return fmt.Errorf("GPS recording error: %v", err)
+			return fmt.Errorf("recording error: %v", err)
 		}
 	}
 }
@@ -172,14 +171,14 @@ func (g *GPSr) record(ctx context.Context) (err error) {
 }
 
 func (g *GPSr) recordWithDuration(ctx context.Context, port io.ReadCloser, timeout time.Duration) (err error) {
-	log.Printf("GPS: starting new recording for %v", timeout)
+	logger.Printf("starting new recording for %v", timeout)
 	tm := time.NewTimer(timeout)
 	g.rmc = []datatype.SRMCplus{}
 
 	count := 0
 	defer func() {
 		if count == 0 {
-			logger.LogAndSend("GPS recording: not creating any file, because there was no data", true)
+			logger.Printf("not creating any file, because there was no data")
 			return
 		}
 
@@ -194,7 +193,7 @@ func (g *GPSr) recordWithDuration(ctx context.Context, port io.ReadCloser, timeo
 		select {
 		case canRead <- true:
 		case <-time.After(30 * time.Second):
-			logger.LogAndSend(fmt.Sprintf("no data from capture device %s. Is it actually a GPS device?", g.config.CaptureDevice), true)
+			logger.Printf("no data from capture device %s. Is it actually a GPS device?", g.config.CaptureDevice)
 		}
 	}()
 
@@ -205,12 +204,12 @@ func (g *GPSr) recordWithDuration(ctx context.Context, port io.ReadCloser, timeo
 		select {
 		case <-ctx.Done():
 			if g.config.Verbose {
-				log.Printf("GPS: recording interrupted")
+				logger.Printf("recording interrupted")
 			}
 			return errors.New("interrupted")
 		case <-tm.C:
 			if g.config.Verbose {
-				log.Printf("GPS: recording part reached maximum size")
+				logger.Printf("recording part reached maximum size")
 			}
 			return nil
 		default:
@@ -218,7 +217,7 @@ func (g *GPSr) recordWithDuration(ctx context.Context, port io.ReadCloser, timeo
 
 		isRMC, err := g.parseGPS(scanner.Text())
 		if err != nil {
-			logger.LogAndSend(fmt.Sprintf("GPS recording: while handling GPS data: %v", err), true)
+			logger.Printf("while handling GPS data: %v", err)
 		}
 
 		if isRMC {
@@ -259,7 +258,7 @@ func (g *GPSr) finalize(oldErr error) error {
 	if rnErr := os.Rename(name, newName); rnErr != nil {
 		return utils.MaybeWrap(rnErr, oldErr, fmt.Sprintf("while renaming file %v", name))
 	}
-	log.Printf("GPS: recording saved: %v", newName)
+	logger.Printf("recording saved: %v", newName)
 
 	return oldErr
 }
@@ -311,14 +310,14 @@ func (g *GPSr) parseGPS(l string) (bool, error) {
 
 	if rmc.Validity == "V" {
 		if g.config.Verbose {
-			log.Printf("GPS: ignoring invalid RMC data")
+			logger.Printf("ignoring invalid RMC data")
 		}
 		return false, nil
 	}
 
 	if !rmc.Date.Valid || !rmc.Time.Valid {
 		if g.config.Verbose {
-			log.Printf("GPS: ignoring RMC data with invalid date or time")
+			logger.Printf("ignoring RMC data with invalid date or time")
 		}
 		return false, nil
 	}
