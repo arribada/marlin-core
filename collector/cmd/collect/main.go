@@ -62,43 +62,64 @@ func startServices(ctx context.Context, wg *sync.WaitGroup, cfg *config.Config) 
 	// runSignalHandler should always be first
 	wg.Add(1)
 	go func() {
-		defer wg.Done()
+		defer func() {
+			wg.Done()
+			log.Printf("Routine terminated: signal handler")
+		}()
 		runSignalHandler(cancel)
 	}()
 
 	wg.Add(1)
 	go func() {
-		defer wg.Done()
+		defer func() {
+			wg.Done()
+			log.Printf("Routine terminated: config server")
+		}()
 		runConfigserver(subCtx, cfg)
 	}()
 
 	wg.Add(1)
 	go func() {
-		defer wg.Done()
+		defer func() {
+			wg.Done()
+			log.Printf("Routine terminated: sat comms")
+		}()
 		runSatComms(subCtx, cfg.Sat)
 	}()
 
 	wg.Add(1)
 	go func() {
-		defer wg.Done()
+		defer func() {
+			wg.Done()
+			log.Printf("Routine terminated: GPS")
+		}()
 		runGPS(subCtx, cfg.GPSr)
 	}()
 
 	wg.Add(1)
 	go func() {
-		defer wg.Done()
+		defer func() {
+			wg.Done()
+			log.Printf("Routine terminated: video")
+		}()
 		runVideo(subCtx, cfg.VideorRTSP)
 	}()
 
 	wg.Add(1)
 	go func() {
-		defer wg.Done()
+		defer func() {
+			wg.Done()
+			log.Printf("Routine terminated: data watcher")
+		}()
 		runDataWatcher(subCtx, cfg.DataWatcher)
 	}()
 
 	wg.Add(1)
 	go func() {
-		defer wg.Done()
+		defer func() {
+			wg.Done()
+			log.Printf("Routine terminated: controller handler")
+		}()
 		runController(subCtx, cfg.Controller)
 	}()
 }

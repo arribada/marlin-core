@@ -29,6 +29,17 @@ import (
 
 var logger = log.New(os.Stdout, "GPS: ", log.Default().Flags()|log.Lmsgprefix)
 
+var (
+	statusMu sync.RWMutex
+	status   bool
+)
+
+func GetStatus() bool {
+	statusMu.RLock()
+	defer statusMu.RUnlock()
+	return status
+}
+
 type Config struct {
 	CaptureDevice string
 	DataDir       string
@@ -129,6 +140,9 @@ type Request struct {
 }
 
 func (g *GPSr) recording(ctx context.Context) error {
+	statusMu.Lock()
+	status = true
+	statusMu.Unlock()
 	logger.Printf("Starting perpetual recording")
 	defer logger.Printf("recording stopped")
 
@@ -166,7 +180,6 @@ func (g *GPSr) record(ctx context.Context) (err error) {
 		}
 	}()
 
-	//	return g.recordWithDuration(ctx, port, g.config.SplitDuration.Duration)
 	return g.recordWithDuration(ctx, port, g.config.SplitDuration)
 }
 

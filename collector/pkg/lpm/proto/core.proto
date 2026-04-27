@@ -2,33 +2,36 @@ syntax = "proto3";
 package sat;
 option go_package = "./pb";
 
-message SatInit {
+message SysInit {
     string id = 1;
     string addr = 2;
     string sec_key = 3;
     string rconf = 4;
+    string hostname = 5;
+    string wifi_network = 6;
 }
 
 message SatMessage {
     string message = 1;
 }
 
-message Info {
-    string hostname = 1;
-    string tailscale_ip = 2;
-    string wifi_network = 3;
-}
-
 message CoreStatus {
     Status camera = 1;
     Status controller = 2;
     Status cloud_connection = 3;
-    float storage_usage = 4;
+    Status cellular = 4;
+    Status wifi = 5;
+    Status gps = 6;
+    Status tailscale = 7;
+    Status local_dash = 8;
+    float storage_usage = 9;
+    string tailscale_ip = 10;
 
     enum Status {
-        OK = 0;
-        BAD = 1;
-        UNKNOWN = 2;
+        ONLINE = 0;
+		OFFLINE = 1;
+		ERROR = 2;
+        UNKNOWN = 3;
     }
 }
 
@@ -45,10 +48,9 @@ message CoreMessage {
     uint32 msg_id = 1;
     oneof message {
         SatMessage sat = 2;
-        Info info = 3;
+        SysInit init = 3;
         CoreStatus status = 4;
         HarbourMode mode = 5;
-        SatInit init = 6;
     }
 }
 

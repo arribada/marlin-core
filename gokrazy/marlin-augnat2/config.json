@@ -82,7 +82,8 @@
 		},
 		"github.com/arribada/marlin-core/collector/cmd/collect": {
 			"ExtraFilePaths": {
-				"/usr/local/bin/ffprobe": "/home/marlin/src/github.com/arribada/marlin-core/ffprobe/ffprobe"
+				"/usr/local/bin/ffprobe": "/home/marlin/src/github.com/arribada/marlin-core/ffprobe/ffprobe",
+				"/usr/local/bin/ffmpeg": "/home/marlin/src/github.com/arribada/marlin-core/ffprobe/ffmpeg"
 			},
 			"WaitForClock": true,
 			"Environment": [

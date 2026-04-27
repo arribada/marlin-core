@@ -11,10 +11,11 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
-	"syscall"
+	"sync"
 	"time"
 
 	"tailscale.com/net/ping"
@@ -28,6 +29,8 @@ var (
 	flagPriority    int
 	flagDebug       bool
 	flagVerbose     bool
+	flagHost        string
+	flagDummy       bool
 )
 
 func init() {
@@ -37,6 +40,8 @@ func init() {
 	flag.IntVar(&flagPriority, "priority", -2, "dhcp route priority")
 	flag.BoolVar(&flagDebug, "debug", false, "run in debug mode (shorter timeouts)")
 	flag.BoolVar(&flagVerbose, "v", true, "be verbose")
+	flag.StringVar(&flagHost, "host", "localhost:3399", "our own HTTP server to report on status")
+	flag.BoolVar(&flagDummy, "dummy", false, "Only run a status handler that says OK all the time.")
 }
 
 const (
@@ -45,7 +50,15 @@ const (
 	mbimConf    = "/etc/mbim-network.conf"
 )
 
+var (
+	statusMu sync.RWMutex
+	status   bool
+)
+
 func checkFlags() {
+	if flagDummy {
+		return
+	}
 	if flagPin == "" {
 		log.Fatal("-pin for SIM card not provided")
 	}
@@ -55,6 +68,18 @@ func main() {
 	flag.Parse()
 
 	checkFlags()
+
+	http.HandleFunc("/status", statusHandler)
+	go func() {
+		log.Fatal(http.ListenAndServe(flagHost, nil))
+	}()
+
+	if flagDummy {
+		statusMu.Lock()
+		status = true
+		statusMu.Unlock()
+		select {}
+	}
 
 	retryConnect()
 
@@ -70,6 +95,16 @@ func main() {
 	if err := retryTestConn(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func statusHandler(w http.ResponseWriter, r *http.Request) {
+	statusMu.RLock()
+	defer statusMu.RUnlock()
+	if status {
+		w.Write([]byte("OK"))
+		return
+	}
+	w.Write([]byte("KO"))
 }
 
 func retryConnect() {
@@ -111,19 +146,6 @@ func mbim() ([]byte, error) {
 	return out, err
 }
 
-func dhcp() error {
-	cmd := exec.Command("/gokrazy/dhcp", "-interface=wwan0", fmt.Sprintf("-extra_route_priority=%d", flagPriority))
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Pdeathsig: syscall.SIGTERM,
-	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	return cmd.Wait()
-}
-
 func retryTestConn() error {
 	bigPause := time.Minute
 	if flagDebug {
@@ -157,7 +179,13 @@ func retryTestConn() error {
 				pause = 30 * time.Second
 			}
 		}
+		statusMu.Lock()
+		status = true
+		statusMu.Unlock()
 		time.Sleep(bigPause)
+		statusMu.Lock()
+		status = false
+		statusMu.Unlock()
 	}
 }
 
@@ -203,6 +231,7 @@ func checkValidAddr() error {
 }
 
 // TODO: remove error from signature when we're happy with this implementation.
+// TODO: maybe use tailscale.com/health instead of all that?
 func testConnection() (bool, error) {
 	dest, err := net.ResolveIPAddr("ip4", "google.com")
 	if err != nil {

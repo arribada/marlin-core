@@ -15,6 +15,7 @@
 		"github.com/gokrazy/wifi",
 		"github.com/arribada/marlin-core/transcriber/cmd/transcribe",
 		"github.com/gokrazy/syslogd/cmd/gokr-syslogd",
+		"github.com/arribada/marlin-core/cellular/cmd/cellular",
 		"github.com/arribada/marlin-core/collector/cmd/collect",
 		"github.com/arribada/marlin-core/collector/integration",
 		"github.com/arribada/marlin-core/databrowser/cmd/databrowser",
@@ -41,7 +42,10 @@
 				"/usr/local/lib/hostapd/libz.so.1": "/home/marlin/src/github.com/arribada/marlin-core/ap/freeze/libz.so.1",
 				"/usr/local/lib/hostapd/libzstd.so.1": "/home/marlin/src/github.com/arribada/marlin-core/ap/freeze/libzstd.so.1",
 				"/etc/hostapd.conf": "/home/marlin/src/github.com/arribada/marlin-core/ap/hostapd.conf"
-			}
+			},
+			"CommandLineFlags": [
+				"-host=:2848"
+			]
 		},
 		"github.com/rtr7/router7/cmd/dhcp4d": {
 			"DontStart": true,
@@ -111,9 +115,39 @@
 				"-mnt=/perm/marlin"
 			]
 		},
+		"github.com/arribada/marlin-core/cellular/cmd/cellular": {
+			"ExtraFilePaths": {
+				"/etc/mbim-network.conf": "/home/marlin/src/github.com/arribada/marlin-core/cellular/mbim-network.conf.free",
+				"/usr/local/bin/mbim-network": "/home/marlin/src/github.com/arribada/marlin-core/cellular/mbim-network",
+				"/usr/local/bin/mbimcli": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/mbimcli",
+				"/usr/local/lib/mbim/ld-linux-aarch64.so.1": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/ld-linux-aarch64.so.1",
+				"/usr/local/lib/mbim/libblkid.so.1": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/libblkid.so.1",
+				"/usr/local/lib/mbim/libc.so.6": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/libc.so.6",
+				"/usr/local/lib/mbim/libffi.so.8": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/libffi.so.8",
+				"/usr/local/lib/mbim/libgio-2.0.so.0": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/libgio-2.0.so.0",
+				"/usr/local/lib/mbim/libglib-2.0.so.0": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/libglib-2.0.so.0",
+				"/usr/local/lib/mbim/libgmodule-2.0.so.0": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/libgmodule-2.0.so.0",
+				"/usr/local/lib/mbim/libgobject-2.0.so.0": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/libgobject-2.0.so.0",
+				"/usr/local/lib/mbim/libm.so.6": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/libm.so.6",
+				"/usr/local/lib/mbim/libmbim-glib.so.4": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/libmbim-glib.so.4",
+				"/usr/local/lib/mbim/libmount.so.1": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/libmount.so.1",
+				"/usr/local/lib/mbim/libpcre2-8.so.0": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/libpcre2-8.so.0",
+				"/usr/local/lib/mbim/libselinux.so.1": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/libselinux.so.1",
+				"/usr/local/lib/mbim/libz.so.1": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/libz.so.1"
+			},
+			"CommandLineFlags": [
+				"-pin=1234",
+				"-priority=-2",
+				"-debug=false",
+				"-v=true",
+				"-host=:3399",
+				"-dummy=true"
+			]
+		},
 		"github.com/arribada/marlin-core/collector/cmd/collect": {
 			"ExtraFilePaths": {
-				"/usr/local/bin/ffprobe": "/home/marlin/src/github.com/arribada/marlin-core/ffprobe/ffprobe"
+				"/usr/local/bin/ffprobe": "/home/marlin/src/github.com/arribada/marlin-core/ffprobe/ffprobe",
+				"/usr/local/bin/ffmpeg": "/home/marlin/src/github.com/arribada/marlin-core/ffprobe/ffmpeg"
 			},
 			"WaitForClock": true,
 			"Environment": [
@@ -125,10 +159,16 @@
 			"CommandLineFlags": [
 				"-host=:7140",
 				"-captain=localhost:7143",
-				"-video=false",
-				"-sat=false",
 				"-gps=true",
-				"-gps_device=/tmp/gps"
+				"-gps_device=/tmp/gps",
+				"-video=true",
+				"-video_split=2m",
+				"-sat=true",
+				"-sat_id=291886",
+				"-sat_address=005A9F10",
+				"-sat_seckey=F179706C2BD09B5B4D15E69CE212019F",
+				"-ts_status_url=GUS_SERVER",
+				"-controller_status_url=TRANSCRIBE_SOURCE"
 			]
 		},
 		"github.com/arribada/marlin-core/databrowser/cmd/databrowser": {

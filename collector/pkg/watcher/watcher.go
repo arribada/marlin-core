@@ -21,7 +21,7 @@ import (
 	"github.com/arribada/marlin-common/pkg/datatype"
 	"github.com/arribada/marlin-common/pkg/sat"
 	"github.com/arribada/marlin-core/collector/pkg/logger"
-	"github.com/arribada/marlin-core/collector/pkg/lpm"
+	lpmio "github.com/arribada/marlin-core/collector/pkg/lpm/io"
 	"github.com/arribada/marlin-core/collector/pkg/types"
 	"golang.org/x/sys/unix"
 
@@ -51,6 +51,22 @@ type Config struct {
 	// VideoAlwaysOn is a way to share knowledge that the video recorder is
 	// continuously recording.
 	VideoAlwaysOn bool
+}
+
+// TODO: gross, but we know we only have one instance of a DuWatcher for now so...
+// Just do better later. We might ask the databrowser or the GC instead anyway.
+var (
+	theDuWatcherMu sync.RWMutex
+	theDuWatcher   *DuWatcher
+)
+
+func GetStorageUsage() float64 {
+	theDuWatcherMu.RLock()
+	defer theDuWatcherMu.RUnlock()
+	if theDuWatcher == nil {
+		return 0
+	}
+	return theDuWatcher.Used
 }
 
 type EventsWatcher struct {
@@ -106,6 +122,9 @@ func New(cfg Config, theChans *types.Chans) (*EventsWatcher, error) {
 
 	du := NewDuWatcher(cfg)
 	ew.du = du
+	theDuWatcherMu.Lock()
+	theDuWatcher = du
+	theDuWatcherMu.Unlock()
 
 	ew.chans = theChans
 	if cfg.VideoAlwaysOn {
@@ -180,7 +199,7 @@ func (ew *EventsWatcher) trackButtonPresses() {
 					log.Printf("timed out on requesting GPS position for alert. Proceeding without a position.")
 				}
 
-				if err := lpm.SendAlert(sat.Alert{
+				if err := lpmio.SendAlert(sat.Alert{
 					Time:      now,
 					Latitude:  latestPos.Latitude,
 					Longitude: latestPos.Longitude,
@@ -477,6 +496,18 @@ func isUploadMarker(fileName string) bool {
 	return strings.HasPrefix(fileName, toUploadPrefix) && strings.HasSuffix(fileName, toUploadSuffix)
 }
 
+var (
+	connectionStatusMu sync.RWMutex
+	// basically loosely reflects whether the latest upload was successful
+	connectionStatus bool
+)
+
+func GetConnectionStatus() bool {
+	connectionStatusMu.RLock()
+	defer connectionStatusMu.RUnlock()
+	return connectionStatus
+}
+
 type uploader struct {
 	azShareCl *share.Client
 	rootDir   string
@@ -528,6 +559,10 @@ func (up *uploader) loop(ctx context.Context) {
 		run.FilesToUpload = up.filesToUpload
 		// TODO: better report
 		log.Printf("upload run report: %v", run)
+
+		connectionStatusMu.Lock()
+		connectionStatus = (run.Err == nil)
+		connectionStatusMu.Unlock()
 
 		// TODO: re-add something to monitor there's no files at the root?
 

@@ -6,6 +6,7 @@ package config
 import (
 	"flag"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/arribada/marlin-core/collector/pkg/controller"
@@ -40,13 +41,17 @@ var (
 	flagHost              string
 	flagTranscriberURL    string
 
-	flagSatEnabled  bool
-	flagSatDevice   string
-	flagSatID       string
-	flagSatAddr     string
-	flagSatSecKey   string
-	flagSatRconf    string
-	flagSatDeviceID string
+	flagSatEnabled       bool
+	flagSatDevice        string
+	flagSatID            string
+	flagSatAddr          string
+	flagSatSecKey        string
+	flagSatRconf         string
+	flagSatDeviceID      string
+	flagCellularStatus   string
+	flagTSStatus         string
+	flagWifiStatus       string
+	flagControllerStatus string
 )
 
 func init() {
@@ -83,7 +88,10 @@ func init() {
 	flag.StringVar(&flagSatSecKey, "sat_seckey", "", "")
 	flag.StringVar(&flagSatRconf, "sat_rconf", "2c93600d6be3bac0ccfe9047c02c058e", "Satellite message size. Defaults to LDA2 (192 bits).")
 	flag.StringVar(&flagSatDeviceID, "sat_device_id", "2FE3:0004", "To help automatically find sat_device, if not specified.")
-
+	flag.StringVar(&flagCellularStatus, "cell_status_url", "http://localhost:3399/status", "Where to probe for cellular status.")
+	flag.StringVar(&flagTSStatus, "ts_status_url", "", "Where to probe for TS status (where GUS at actually)")
+	flag.StringVar(&flagWifiStatus, "wifi_status_url", "http://localhost:2848/status", "Where to probe for wifi status.")
+	flag.StringVar(&flagControllerStatus, "controller_status_url", "", "controller status URL")
 }
 
 type Config struct {
@@ -170,6 +178,23 @@ func parseController() (*controller.Config, error) {
 }
 
 func parseSat() (*lpm.Config, error) {
+	hostName, err := os.Hostname()
+	if err != nil {
+		return nil, err
+	}
+	var controllerStatusURL string
+	if flagControllerEnabled {
+		// TODO: implement actual endpoint for controller to report its status.
+		// we don't want to actually fetch audio from the controller, so we just ping that URL for now.
+		controllerStatusURL = flagControllerStatus
+	}
+	var dataBrowserURL string
+	if flagReportURL != "" {
+		// TODO: gross, but works for now. We don't want to actually probe
+		// the report endpoint as it's a bit more CPU intensive on the
+		// databrowser, than fetching a static asset like trip.html
+		dataBrowserURL = strings.TrimSuffix(flagReportURL, "?report=last") + "/trip.html"
+	}
 	// TODO: env vars
 	return &lpm.Config{
 		Enabled:  flagSatEnabled,
@@ -180,6 +205,17 @@ func parseSat() (*lpm.Config, error) {
 		SecKey:   flagSatSecKey,
 		Rconf:    flagSatRconf,
 		DeviceID: flagSatDeviceID,
+		// TODO: not hardcoded. Find a way to share with ap? read it directly
+		// from /etc/hostapd.conf? get in real time with some wifi tools/code?
+		WifiNetwork:         "marlin",
+		Hostname:            hostName,
+		VideoEnabled:        flagVideoEnabled,
+		GPSEnabled:          flagGPSEnabled,
+		ControllerStatusURL: controllerStatusURL,
+		CellularStatusURL:   flagCellularStatus,
+		TSStatusURL:         flagTSStatus,
+		WifiStatusURL:       flagWifiStatus,
+		DataBrowserURL:      dataBrowserURL,
 	}, nil
 }
 

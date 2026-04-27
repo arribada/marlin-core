@@ -24,22 +24,25 @@ const (
 type CoreStatus_Status int32
 
 const (
-	CoreStatus_OK      CoreStatus_Status = 0
-	CoreStatus_BAD     CoreStatus_Status = 1
-	CoreStatus_UNKNOWN CoreStatus_Status = 2
+	CoreStatus_ONLINE  CoreStatus_Status = 0
+	CoreStatus_OFFLINE CoreStatus_Status = 1
+	CoreStatus_ERROR   CoreStatus_Status = 2
+	CoreStatus_UNKNOWN CoreStatus_Status = 3
 )
 
 // Enum value maps for CoreStatus_Status.
 var (
 	CoreStatus_Status_name = map[int32]string{
-		0: "OK",
-		1: "BAD",
-		2: "UNKNOWN",
+		0: "ONLINE",
+		1: "OFFLINE",
+		2: "ERROR",
+		3: "UNKNOWN",
 	}
 	CoreStatus_Status_value = map[string]int32{
-		"OK":      0,
-		"BAD":     1,
-		"UNKNOWN": 2,
+		"ONLINE":  0,
+		"OFFLINE": 1,
+		"ERROR":   2,
+		"UNKNOWN": 3,
 	}
 )
 
@@ -67,7 +70,7 @@ func (x CoreStatus_Status) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use CoreStatus_Status.Descriptor instead.
 func (CoreStatus_Status) EnumDescriptor() ([]byte, []int) {
-	return file_proto_core_proto_rawDescGZIP(), []int{3, 0}
+	return file_proto_core_proto_rawDescGZIP(), []int{2, 0}
 }
 
 type HarbourMode_Command int32
@@ -113,7 +116,7 @@ func (x HarbourMode_Command) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use HarbourMode_Command.Descriptor instead.
 func (HarbourMode_Command) EnumDescriptor() ([]byte, []int) {
-	return file_proto_core_proto_rawDescGZIP(), []int{4, 0}
+	return file_proto_core_proto_rawDescGZIP(), []int{3, 0}
 }
 
 type LpmReply_Response int32
@@ -159,33 +162,35 @@ func (x LpmReply_Response) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use LpmReply_Response.Descriptor instead.
 func (LpmReply_Response) EnumDescriptor() ([]byte, []int) {
-	return file_proto_core_proto_rawDescGZIP(), []int{6, 0}
+	return file_proto_core_proto_rawDescGZIP(), []int{5, 0}
 }
 
-type SatInit struct {
+type SysInit struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Addr          string                 `protobuf:"bytes,2,opt,name=addr,proto3" json:"addr,omitempty"`
 	SecKey        string                 `protobuf:"bytes,3,opt,name=sec_key,json=secKey,proto3" json:"sec_key,omitempty"`
 	Rconf         string                 `protobuf:"bytes,4,opt,name=rconf,proto3" json:"rconf,omitempty"`
+	Hostname      string                 `protobuf:"bytes,5,opt,name=hostname,proto3" json:"hostname,omitempty"`
+	WifiNetwork   string                 `protobuf:"bytes,6,opt,name=wifi_network,json=wifiNetwork,proto3" json:"wifi_network,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SatInit) Reset() {
-	*x = SatInit{}
+func (x *SysInit) Reset() {
+	*x = SysInit{}
 	mi := &file_proto_core_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SatInit) String() string {
+func (x *SysInit) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SatInit) ProtoMessage() {}
+func (*SysInit) ProtoMessage() {}
 
-func (x *SatInit) ProtoReflect() protoreflect.Message {
+func (x *SysInit) ProtoReflect() protoreflect.Message {
 	mi := &file_proto_core_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -197,35 +202,49 @@ func (x *SatInit) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SatInit.ProtoReflect.Descriptor instead.
-func (*SatInit) Descriptor() ([]byte, []int) {
+// Deprecated: Use SysInit.ProtoReflect.Descriptor instead.
+func (*SysInit) Descriptor() ([]byte, []int) {
 	return file_proto_core_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *SatInit) GetId() string {
+func (x *SysInit) GetId() string {
 	if x != nil {
 		return x.Id
 	}
 	return ""
 }
 
-func (x *SatInit) GetAddr() string {
+func (x *SysInit) GetAddr() string {
 	if x != nil {
 		return x.Addr
 	}
 	return ""
 }
 
-func (x *SatInit) GetSecKey() string {
+func (x *SysInit) GetSecKey() string {
 	if x != nil {
 		return x.SecKey
 	}
 	return ""
 }
 
-func (x *SatInit) GetRconf() string {
+func (x *SysInit) GetRconf() string {
 	if x != nil {
 		return x.Rconf
+	}
+	return ""
+}
+
+func (x *SysInit) GetHostname() string {
+	if x != nil {
+		return x.Hostname
+	}
+	return ""
+}
+
+func (x *SysInit) GetWifiNetwork() string {
+	if x != nil {
+		return x.WifiNetwork
 	}
 	return ""
 }
@@ -274,79 +293,25 @@ func (x *SatMessage) GetMessage() string {
 	return ""
 }
 
-type Info struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Hostname      string                 `protobuf:"bytes,1,opt,name=hostname,proto3" json:"hostname,omitempty"`
-	TailscaleIp   string                 `protobuf:"bytes,2,opt,name=tailscale_ip,json=tailscaleIp,proto3" json:"tailscale_ip,omitempty"`
-	WifiNetwork   string                 `protobuf:"bytes,3,opt,name=wifi_network,json=wifiNetwork,proto3" json:"wifi_network,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Info) Reset() {
-	*x = Info{}
-	mi := &file_proto_core_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Info) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Info) ProtoMessage() {}
-
-func (x *Info) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_core_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Info.ProtoReflect.Descriptor instead.
-func (*Info) Descriptor() ([]byte, []int) {
-	return file_proto_core_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *Info) GetHostname() string {
-	if x != nil {
-		return x.Hostname
-	}
-	return ""
-}
-
-func (x *Info) GetTailscaleIp() string {
-	if x != nil {
-		return x.TailscaleIp
-	}
-	return ""
-}
-
-func (x *Info) GetWifiNetwork() string {
-	if x != nil {
-		return x.WifiNetwork
-	}
-	return ""
-}
-
 type CoreStatus struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Camera          CoreStatus_Status      `protobuf:"varint,1,opt,name=camera,proto3,enum=sat.CoreStatus_Status" json:"camera,omitempty"`
 	Controller      CoreStatus_Status      `protobuf:"varint,2,opt,name=controller,proto3,enum=sat.CoreStatus_Status" json:"controller,omitempty"`
 	CloudConnection CoreStatus_Status      `protobuf:"varint,3,opt,name=cloud_connection,json=cloudConnection,proto3,enum=sat.CoreStatus_Status" json:"cloud_connection,omitempty"`
-	StorageUsage    float32                `protobuf:"fixed32,4,opt,name=storage_usage,json=storageUsage,proto3" json:"storage_usage,omitempty"`
+	Cellular        CoreStatus_Status      `protobuf:"varint,4,opt,name=cellular,proto3,enum=sat.CoreStatus_Status" json:"cellular,omitempty"`
+	Wifi            CoreStatus_Status      `protobuf:"varint,5,opt,name=wifi,proto3,enum=sat.CoreStatus_Status" json:"wifi,omitempty"`
+	Gps             CoreStatus_Status      `protobuf:"varint,6,opt,name=gps,proto3,enum=sat.CoreStatus_Status" json:"gps,omitempty"`
+	Tailscale       CoreStatus_Status      `protobuf:"varint,7,opt,name=tailscale,proto3,enum=sat.CoreStatus_Status" json:"tailscale,omitempty"`
+	LocalDash       CoreStatus_Status      `protobuf:"varint,8,opt,name=local_dash,json=localDash,proto3,enum=sat.CoreStatus_Status" json:"local_dash,omitempty"`
+	StorageUsage    float32                `protobuf:"fixed32,9,opt,name=storage_usage,json=storageUsage,proto3" json:"storage_usage,omitempty"`
+	TailscaleIp     string                 `protobuf:"bytes,10,opt,name=tailscale_ip,json=tailscaleIp,proto3" json:"tailscale_ip,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
 
 func (x *CoreStatus) Reset() {
 	*x = CoreStatus{}
-	mi := &file_proto_core_proto_msgTypes[3]
+	mi := &file_proto_core_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -358,7 +323,7 @@ func (x *CoreStatus) String() string {
 func (*CoreStatus) ProtoMessage() {}
 
 func (x *CoreStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_core_proto_msgTypes[3]
+	mi := &file_proto_core_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -371,28 +336,63 @@ func (x *CoreStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoreStatus.ProtoReflect.Descriptor instead.
 func (*CoreStatus) Descriptor() ([]byte, []int) {
-	return file_proto_core_proto_rawDescGZIP(), []int{3}
+	return file_proto_core_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CoreStatus) GetCamera() CoreStatus_Status {
 	if x != nil {
 		return x.Camera
 	}
-	return CoreStatus_OK
+	return CoreStatus_ONLINE
 }
 
 func (x *CoreStatus) GetController() CoreStatus_Status {
 	if x != nil {
 		return x.Controller
 	}
-	return CoreStatus_OK
+	return CoreStatus_ONLINE
 }
 
 func (x *CoreStatus) GetCloudConnection() CoreStatus_Status {
 	if x != nil {
 		return x.CloudConnection
 	}
-	return CoreStatus_OK
+	return CoreStatus_ONLINE
+}
+
+func (x *CoreStatus) GetCellular() CoreStatus_Status {
+	if x != nil {
+		return x.Cellular
+	}
+	return CoreStatus_ONLINE
+}
+
+func (x *CoreStatus) GetWifi() CoreStatus_Status {
+	if x != nil {
+		return x.Wifi
+	}
+	return CoreStatus_ONLINE
+}
+
+func (x *CoreStatus) GetGps() CoreStatus_Status {
+	if x != nil {
+		return x.Gps
+	}
+	return CoreStatus_ONLINE
+}
+
+func (x *CoreStatus) GetTailscale() CoreStatus_Status {
+	if x != nil {
+		return x.Tailscale
+	}
+	return CoreStatus_ONLINE
+}
+
+func (x *CoreStatus) GetLocalDash() CoreStatus_Status {
+	if x != nil {
+		return x.LocalDash
+	}
+	return CoreStatus_ONLINE
 }
 
 func (x *CoreStatus) GetStorageUsage() float32 {
@@ -400,6 +400,13 @@ func (x *CoreStatus) GetStorageUsage() float32 {
 		return x.StorageUsage
 	}
 	return 0
+}
+
+func (x *CoreStatus) GetTailscaleIp() string {
+	if x != nil {
+		return x.TailscaleIp
+	}
+	return ""
 }
 
 type HarbourMode struct {
@@ -411,7 +418,7 @@ type HarbourMode struct {
 
 func (x *HarbourMode) Reset() {
 	*x = HarbourMode{}
-	mi := &file_proto_core_proto_msgTypes[4]
+	mi := &file_proto_core_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -423,7 +430,7 @@ func (x *HarbourMode) String() string {
 func (*HarbourMode) ProtoMessage() {}
 
 func (x *HarbourMode) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_core_proto_msgTypes[4]
+	mi := &file_proto_core_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -436,7 +443,7 @@ func (x *HarbourMode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HarbourMode.ProtoReflect.Descriptor instead.
 func (*HarbourMode) Descriptor() ([]byte, []int) {
-	return file_proto_core_proto_rawDescGZIP(), []int{4}
+	return file_proto_core_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *HarbourMode) GetCmd() HarbourMode_Command {
@@ -452,10 +459,9 @@ type CoreMessage struct {
 	// Types that are valid to be assigned to Message:
 	//
 	//	*CoreMessage_Sat
-	//	*CoreMessage_Info
+	//	*CoreMessage_Init
 	//	*CoreMessage_Status
 	//	*CoreMessage_Mode
-	//	*CoreMessage_Init
 	Message       isCoreMessage_Message `protobuf_oneof:"message"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -463,7 +469,7 @@ type CoreMessage struct {
 
 func (x *CoreMessage) Reset() {
 	*x = CoreMessage{}
-	mi := &file_proto_core_proto_msgTypes[5]
+	mi := &file_proto_core_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -475,7 +481,7 @@ func (x *CoreMessage) String() string {
 func (*CoreMessage) ProtoMessage() {}
 
 func (x *CoreMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_core_proto_msgTypes[5]
+	mi := &file_proto_core_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -488,7 +494,7 @@ func (x *CoreMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoreMessage.ProtoReflect.Descriptor instead.
 func (*CoreMessage) Descriptor() ([]byte, []int) {
-	return file_proto_core_proto_rawDescGZIP(), []int{5}
+	return file_proto_core_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *CoreMessage) GetMsgId() uint32 {
@@ -514,10 +520,10 @@ func (x *CoreMessage) GetSat() *SatMessage {
 	return nil
 }
 
-func (x *CoreMessage) GetInfo() *Info {
+func (x *CoreMessage) GetInit() *SysInit {
 	if x != nil {
-		if x, ok := x.Message.(*CoreMessage_Info); ok {
-			return x.Info
+		if x, ok := x.Message.(*CoreMessage_Init); ok {
+			return x.Init
 		}
 	}
 	return nil
@@ -541,15 +547,6 @@ func (x *CoreMessage) GetMode() *HarbourMode {
 	return nil
 }
 
-func (x *CoreMessage) GetInit() *SatInit {
-	if x != nil {
-		if x, ok := x.Message.(*CoreMessage_Init); ok {
-			return x.Init
-		}
-	}
-	return nil
-}
-
 type isCoreMessage_Message interface {
 	isCoreMessage_Message()
 }
@@ -558,8 +555,8 @@ type CoreMessage_Sat struct {
 	Sat *SatMessage `protobuf:"bytes,2,opt,name=sat,proto3,oneof"`
 }
 
-type CoreMessage_Info struct {
-	Info *Info `protobuf:"bytes,3,opt,name=info,proto3,oneof"`
+type CoreMessage_Init struct {
+	Init *SysInit `protobuf:"bytes,3,opt,name=init,proto3,oneof"`
 }
 
 type CoreMessage_Status struct {
@@ -570,19 +567,13 @@ type CoreMessage_Mode struct {
 	Mode *HarbourMode `protobuf:"bytes,5,opt,name=mode,proto3,oneof"`
 }
 
-type CoreMessage_Init struct {
-	Init *SatInit `protobuf:"bytes,6,opt,name=init,proto3,oneof"`
-}
-
 func (*CoreMessage_Sat) isCoreMessage_Message() {}
 
-func (*CoreMessage_Info) isCoreMessage_Message() {}
+func (*CoreMessage_Init) isCoreMessage_Message() {}
 
 func (*CoreMessage_Status) isCoreMessage_Message() {}
 
 func (*CoreMessage_Mode) isCoreMessage_Message() {}
-
-func (*CoreMessage_Init) isCoreMessage_Message() {}
 
 type LpmReply struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -594,7 +585,7 @@ type LpmReply struct {
 
 func (x *LpmReply) Reset() {
 	*x = LpmReply{}
-	mi := &file_proto_core_proto_msgTypes[6]
+	mi := &file_proto_core_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -606,7 +597,7 @@ func (x *LpmReply) String() string {
 func (*LpmReply) ProtoMessage() {}
 
 func (x *LpmReply) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_core_proto_msgTypes[6]
+	mi := &file_proto_core_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -619,7 +610,7 @@ func (x *LpmReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LpmReply.ProtoReflect.Descriptor instead.
 func (*LpmReply) Descriptor() ([]byte, []int) {
-	return file_proto_core_proto_rawDescGZIP(), []int{6}
+	return file_proto_core_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *LpmReply) GetMsgId() uint32 {
@@ -640,43 +631,50 @@ var File_proto_core_proto protoreflect.FileDescriptor
 
 const file_proto_core_proto_rawDesc = "" +
 	"\n" +
-	"\x10proto/core.proto\x12\x03sat\"\\\n" +
-	"\aSatInit\x12\x0e\n" +
+	"\x10proto/core.proto\x12\x03sat\"\x9b\x01\n" +
+	"\aSysInit\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04addr\x18\x02 \x01(\tR\x04addr\x12\x17\n" +
 	"\asec_key\x18\x03 \x01(\tR\x06secKey\x12\x14\n" +
-	"\x05rconf\x18\x04 \x01(\tR\x05rconf\"&\n" +
+	"\x05rconf\x18\x04 \x01(\tR\x05rconf\x12\x1a\n" +
+	"\bhostname\x18\x05 \x01(\tR\bhostname\x12!\n" +
+	"\fwifi_network\x18\x06 \x01(\tR\vwifiNetwork\"&\n" +
 	"\n" +
 	"SatMessage\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"h\n" +
-	"\x04Info\x12\x1a\n" +
-	"\bhostname\x18\x01 \x01(\tR\bhostname\x12!\n" +
-	"\ftailscale_ip\x18\x02 \x01(\tR\vtailscaleIp\x12!\n" +
-	"\fwifi_network\x18\x03 \x01(\tR\vwifiNetwork\"\x84\x02\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\xb1\x04\n" +
 	"\n" +
 	"CoreStatus\x12.\n" +
 	"\x06camera\x18\x01 \x01(\x0e2\x16.sat.CoreStatus.StatusR\x06camera\x126\n" +
 	"\n" +
 	"controller\x18\x02 \x01(\x0e2\x16.sat.CoreStatus.StatusR\n" +
 	"controller\x12A\n" +
-	"\x10cloud_connection\x18\x03 \x01(\x0e2\x16.sat.CoreStatus.StatusR\x0fcloudConnection\x12#\n" +
-	"\rstorage_usage\x18\x04 \x01(\x02R\fstorageUsage\"&\n" +
-	"\x06Status\x12\x06\n" +
-	"\x02OK\x10\x00\x12\a\n" +
-	"\x03BAD\x10\x01\x12\v\n" +
-	"\aUNKNOWN\x10\x02\"Y\n" +
+	"\x10cloud_connection\x18\x03 \x01(\x0e2\x16.sat.CoreStatus.StatusR\x0fcloudConnection\x122\n" +
+	"\bcellular\x18\x04 \x01(\x0e2\x16.sat.CoreStatus.StatusR\bcellular\x12*\n" +
+	"\x04wifi\x18\x05 \x01(\x0e2\x16.sat.CoreStatus.StatusR\x04wifi\x12(\n" +
+	"\x03gps\x18\x06 \x01(\x0e2\x16.sat.CoreStatus.StatusR\x03gps\x124\n" +
+	"\ttailscale\x18\a \x01(\x0e2\x16.sat.CoreStatus.StatusR\ttailscale\x125\n" +
+	"\n" +
+	"local_dash\x18\b \x01(\x0e2\x16.sat.CoreStatus.StatusR\tlocalDash\x12#\n" +
+	"\rstorage_usage\x18\t \x01(\x02R\fstorageUsage\x12!\n" +
+	"\ftailscale_ip\x18\n" +
+	" \x01(\tR\vtailscaleIp\"9\n" +
+	"\x06Status\x12\n" +
+	"\n" +
+	"\x06ONLINE\x10\x00\x12\v\n" +
+	"\aOFFLINE\x10\x01\x12\t\n" +
+	"\x05ERROR\x10\x02\x12\v\n" +
+	"\aUNKNOWN\x10\x03\"Y\n" +
 	"\vHarbourMode\x12*\n" +
 	"\x03cmd\x18\x01 \x01(\x0e2\x18.sat.HarbourMode.CommandR\x03cmd\"\x1e\n" +
 	"\aCommand\x12\t\n" +
 	"\x05ENTER\x10\x00\x12\b\n" +
-	"\x04EXIT\x10\x01\"\xec\x01\n" +
+	"\x04EXIT\x10\x01\"\xcb\x01\n" +
 	"\vCoreMessage\x12\x15\n" +
 	"\x06msg_id\x18\x01 \x01(\rR\x05msgId\x12#\n" +
-	"\x03sat\x18\x02 \x01(\v2\x0f.sat.SatMessageH\x00R\x03sat\x12\x1f\n" +
-	"\x04info\x18\x03 \x01(\v2\t.sat.InfoH\x00R\x04info\x12)\n" +
+	"\x03sat\x18\x02 \x01(\v2\x0f.sat.SatMessageH\x00R\x03sat\x12\"\n" +
+	"\x04init\x18\x03 \x01(\v2\f.sat.SysInitH\x00R\x04init\x12)\n" +
 	"\x06status\x18\x04 \x01(\v2\x0f.sat.CoreStatusH\x00R\x06status\x12&\n" +
-	"\x04mode\x18\x05 \x01(\v2\x10.sat.HarbourModeH\x00R\x04mode\x12\"\n" +
-	"\x04init\x18\x06 \x01(\v2\f.sat.SatInitH\x00R\x04initB\t\n" +
+	"\x04mode\x18\x05 \x01(\v2\x10.sat.HarbourModeH\x00R\x04modeB\t\n" +
 	"\amessage\"t\n" +
 	"\bLpmReply\x12\x15\n" +
 	"\x06msg_id\x18\x01 \x01(\rR\x05msgId\x122\n" +
@@ -698,35 +696,38 @@ func file_proto_core_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_core_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_proto_core_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_proto_core_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_proto_core_proto_goTypes = []any{
 	(CoreStatus_Status)(0),   // 0: sat.CoreStatus.Status
 	(HarbourMode_Command)(0), // 1: sat.HarbourMode.Command
 	(LpmReply_Response)(0),   // 2: sat.LpmReply.Response
-	(*SatInit)(nil),          // 3: sat.SatInit
+	(*SysInit)(nil),          // 3: sat.SysInit
 	(*SatMessage)(nil),       // 4: sat.SatMessage
-	(*Info)(nil),             // 5: sat.Info
-	(*CoreStatus)(nil),       // 6: sat.CoreStatus
-	(*HarbourMode)(nil),      // 7: sat.HarbourMode
-	(*CoreMessage)(nil),      // 8: sat.CoreMessage
-	(*LpmReply)(nil),         // 9: sat.LpmReply
+	(*CoreStatus)(nil),       // 5: sat.CoreStatus
+	(*HarbourMode)(nil),      // 6: sat.HarbourMode
+	(*CoreMessage)(nil),      // 7: sat.CoreMessage
+	(*LpmReply)(nil),         // 8: sat.LpmReply
 }
 var file_proto_core_proto_depIdxs = []int32{
 	0,  // 0: sat.CoreStatus.camera:type_name -> sat.CoreStatus.Status
 	0,  // 1: sat.CoreStatus.controller:type_name -> sat.CoreStatus.Status
 	0,  // 2: sat.CoreStatus.cloud_connection:type_name -> sat.CoreStatus.Status
-	1,  // 3: sat.HarbourMode.cmd:type_name -> sat.HarbourMode.Command
-	4,  // 4: sat.CoreMessage.sat:type_name -> sat.SatMessage
-	5,  // 5: sat.CoreMessage.info:type_name -> sat.Info
-	6,  // 6: sat.CoreMessage.status:type_name -> sat.CoreStatus
-	7,  // 7: sat.CoreMessage.mode:type_name -> sat.HarbourMode
-	3,  // 8: sat.CoreMessage.init:type_name -> sat.SatInit
-	2,  // 9: sat.LpmReply.response:type_name -> sat.LpmReply.Response
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	0,  // 3: sat.CoreStatus.cellular:type_name -> sat.CoreStatus.Status
+	0,  // 4: sat.CoreStatus.wifi:type_name -> sat.CoreStatus.Status
+	0,  // 5: sat.CoreStatus.gps:type_name -> sat.CoreStatus.Status
+	0,  // 6: sat.CoreStatus.tailscale:type_name -> sat.CoreStatus.Status
+	0,  // 7: sat.CoreStatus.local_dash:type_name -> sat.CoreStatus.Status
+	1,  // 8: sat.HarbourMode.cmd:type_name -> sat.HarbourMode.Command
+	4,  // 9: sat.CoreMessage.sat:type_name -> sat.SatMessage
+	3,  // 10: sat.CoreMessage.init:type_name -> sat.SysInit
+	5,  // 11: sat.CoreMessage.status:type_name -> sat.CoreStatus
+	6,  // 12: sat.CoreMessage.mode:type_name -> sat.HarbourMode
+	2,  // 13: sat.LpmReply.response:type_name -> sat.LpmReply.Response
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_proto_core_proto_init() }
@@ -734,12 +735,11 @@ func file_proto_core_proto_init() {
 	if File_proto_core_proto != nil {
 		return
 	}
-	file_proto_core_proto_msgTypes[5].OneofWrappers = []any{
+	file_proto_core_proto_msgTypes[4].OneofWrappers = []any{
 		(*CoreMessage_Sat)(nil),
-		(*CoreMessage_Info)(nil),
+		(*CoreMessage_Init)(nil),
 		(*CoreMessage_Status)(nil),
 		(*CoreMessage_Mode)(nil),
-		(*CoreMessage_Init)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -747,7 +747,7 @@ func file_proto_core_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_core_proto_rawDesc), len(file_proto_core_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   7,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

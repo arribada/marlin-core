@@ -30,6 +30,17 @@ import (
 // To easily test this package as a "program":
 // /user/collect -host=:7140 -captain="" -video=true -gps=false -datadir=/tmp/marlin -v=true -video_device='rtsp://foo:bar@192.168.87.250:554/live1s1.sdp' -video_split=1m
 
+var (
+	statusMu sync.RWMutex
+	status   bool
+)
+
+func GetStatus() bool {
+	statusMu.RLock()
+	defer statusMu.RUnlock()
+	return status
+}
+
 const (
 	defaultRTSPPort = 554
 	ipPlaceHolder   = ".N"
@@ -356,12 +367,18 @@ func (v *Videor) recordLoop(ctx context.Context) {
 		v.recordStop = cancel
 		v.recordStopMu.Unlock()
 
+		statusMu.Lock()
+		status = true
+		statusMu.Unlock()
 		err := v.record(recordCtx)
 		logger.Printf("recording sequence over")
 		if err == nil {
 			autoRestartBackoff = time.Second
 			continue
 		}
+		statusMu.Lock()
+		status = false
+		statusMu.Unlock()
 
 		// TODO: terminate if it's a critical error, like no storage space anymore?
 		// And use an err chan to propagate the error upwards maybe?
@@ -379,6 +396,8 @@ func (v *Videor) recordLoop(ctx context.Context) {
 				autoRestartBackoff = maxBackoff
 			}
 			select {
+			case <-ctx.Done():
+				return
 			case v.recordStart <- struct{}{}:
 				logger.Printf("Auto-restarting recording")
 			case <-time.After(5 * time.Second):
