@@ -26,6 +26,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/directory"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/file"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/fileerror"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share"
 	"github.com/fsnotify/fsnotify"
@@ -578,7 +579,10 @@ func (up *uploader) loop(ctx context.Context) {
 		}
 
 		if run.Err != nil {
+			// TODO: add a bit of a backoff, especially on systematic error?
+			// the goal is of course to find and phase out all such errors though.
 			log.Printf("restarting upload run immediately because there was an error")
+			time.Sleep(3 * time.Second)
 			continue
 		}
 
@@ -805,7 +809,26 @@ func (up *uploader) uploadFile(datatypeCl *directory.Client, typeDir, filename s
 
 	rnPath := filepath.Join(dayDir, tpDir, filename)
 	if _, err := fClient.Rename(context.TODO(), rnPath, nil); err != nil {
-		return false, fmt.Errorf("failed to rename %v into %v: %v", tempFilename, filename, err)
+		if !fileerror.HasCode(err, fileerror.ResourceAlreadyExists) {
+			return false, fmt.Errorf("failed to rename %v into %v: %v", tempFilename, filename, err)
+		}
+
+		// remote file already exists, investigate further.
+		rClient := datatypeCl.NewFileClient(filename)
+		resp, err := rClient.GetProperties(context.TODO(), nil)
+		if err != nil {
+			return false, fmt.Errorf("could not get properties of %v: %v", filename, err)
+		}
+		rSize := *(resp.ContentLength)
+		if rSize > fSize {
+			return false, fmt.Errorf("refusing to overwrite remote file (%v) with smaller local one", filename)
+		}
+		log.Printf("Overwriting (while renaming) remote file %v with local file", filename)
+		b := true
+		if _, err := fClient.Rename(context.TODO(), rnPath,
+			&file.RenameOptions{ReplaceIfExists: &b}); err != nil {
+			return false, fmt.Errorf("failed to rename %v into %v: %v", tempFilename, filename, err)
+		}
 	}
 
 	logger.LogAndSend(fmt.Sprintf("Successfully uploaded to Azure: %v", fullPath))
