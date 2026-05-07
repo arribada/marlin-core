@@ -305,11 +305,11 @@ func (s srcServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, filepath.Join(flagCodeDir, r.URL.Path))
 }
 
-type allHandler struct {
-	fs fileServer
+type topHandler struct {
+	sub http.Handler
 }
 
-func (ah allHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (top topHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rep := r.FormValue("report")
 	if rep != "" {
 		reportHandler{day: rep}.ServeHTTP(w, r)
@@ -318,13 +318,15 @@ func (ah allHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: any other interesting queries?
 
-	ah.fs.ServeHTTP(w, r)
+	top.sub.ServeHTTP(w, r)
 }
 
 func Server() {
 	srcHandler := basicauth.UserPassHandler{
 		UP: up,
-		H:  srcServer{},
+		H: topHandler{
+			sub: srcServer{},
+		},
 	}
 
 	dataHandler := basicauth.UserPassHandler{
@@ -334,9 +336,7 @@ func Server() {
 
 	rawHandler := basicauth.UserPassHandler{
 		UP: up,
-		H: allHandler{
-			fs: fileServer{},
-		},
+		H:  fileServer{},
 	}
 
 	http.Handle(dataPrefix, &dataHandler)
