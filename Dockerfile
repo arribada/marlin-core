@@ -88,6 +88,12 @@ COPY ./Makefile .
 # run all tests
 RUN make tests2
 
+# just for the stake of explicitness, given tests are always being
+# run in builder stage anyway
+FROM scratch AS dotests
+# stupid useless step to force dependency on builder stage
+COPY --from=builder /home/marlin/src/github.com/arribada/marlin-core/Makefile /
+
 FROM builder AS gengaf
 ARG instance=doesnotexist
 RUN --mount=type=cache,target=/home/marlin/pkg INSTANCE=$instance make gaf2

@@ -33,7 +33,7 @@ sbom: fsck ffprobe validinstance
 .PHONY: tests
 tests: ## run tests in docker
 tests:
-	@docker build --progress=plain -f Dockerfile --build-arg gitcreds=${GITCREDS} --build-arg instance="marlin-augnat1" --build-arg GOPROXY=${GOPROXY} --target sbom --output=. .
+	@docker build --progress=plain -f Dockerfile --build-arg gitcreds=${GITCREDS} --build-arg instance="marlin-augnat1" --build-arg GOPROXY=${GOPROXY} --target dotests --output=. .
 
 .PHONY: update
 update: ## push update to GUS server
@@ -89,6 +89,7 @@ gaf2: ## create gaf for ingestion
 gaf2: validinstance
 	@CGO_ENABLED=1 GOOS=linux GOARCH=arm64 ${GOPATH}/bin/gok --parent_dir ./gokrazy/ -i ${INSTANCE} overwrite --gaf /tmp/${INSTANCE}.gaf
 
+# TODO: fix it, does not run anymore with Go version bump
 .PHONY: sbom2
 sbom2: ## generate sbom
 sbom2: validinstance
