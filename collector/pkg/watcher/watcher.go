@@ -31,8 +31,6 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-const ComponentName = "data watcher"
-
 type Config struct {
 	Enabled bool
 	DataDir string
@@ -229,6 +227,7 @@ func (du *DuWatcher) Update() error {
 	return nil
 }
 
+// TODO: move that to the GC? or to the data browser?
 func (du *DuWatcher) loop(ctx context.Context) {
 	if du == nil {
 		logger.LogAndSend("Storage space watcher not enabled")
@@ -698,12 +697,23 @@ func (up *uploader) uploadType(datetimeCl *directory.Client, dayDir, typeDir str
 			if !os.IsNotExist(err) {
 				return err
 			}
-			return fmt.Errorf("upload marker file (%s) found, but corresponding file (%s) not found", name, fileToUpload)
+			// TODO: think whether to investigate that case any further. At
+			// least we voluntarily do not remove the .upload marker, so that this
+			// gets logged everytime.
+			// return fmt.Errorf("upload marker file (%s) found, but corresponding file (%s) not found", name, fileToUpload)
+			log.Printf("upload marker file (%s) found, but corresponding file (%s) not found. Skipping.", name, fileToUpload)
+			return nil
 		}
 		up.filesToUpload++
 
-		if err := up.uploadFile(datatypeCl, typePath, fileToUpload); err != nil {
+		done, err := up.uploadFile(datatypeCl, typePath, fileToUpload)
+		if err != nil {
 			return fmt.Errorf("while trying to upload %v: %v", fileToUploadPath, err)
+		}
+		// because we didn't upload it if it was an empty file
+		if !done {
+			// Keep the upload marker around as a proof for later investigation
+			return nil
 		}
 		up.filesUploaded++
 
@@ -716,48 +726,55 @@ func (up *uploader) uploadType(datetimeCl *directory.Client, dayDir, typeDir str
 	return nil
 }
 
-func (up *uploader) uploadFile(datatypeCl *directory.Client, typeDir, filename string) error {
+func (up *uploader) uploadFile(datatypeCl *directory.Client, typeDir, filename string) (bool, error) {
 	fullPath := filepath.Join(typeDir, filename)
 	f, err := os.OpenFile(fullPath, os.O_RDONLY, 0)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer f.Close()
 	fInfo, err := f.Stat()
 	if err != nil {
-		return err
+		return false, err
 	}
 	fSize := fInfo.Size()
+	// trying to upload an empty file will result in an Azure error, so we purposefully ignore it.
+	// TODO: could there ever be a case that this file would
+	// eventually not be empty and we incorrectly skipped it?
+	if fSize == 0 {
+		return false, nil
+	}
 
 	// TODO: should we validate more strictly, i.e. by common datatype?
 	if strings.HasSuffix(filename, ".") {
+		log.Printf("skipping upload of empty file %v", filename)
 		// skip hidden files, notably the .DS_Store bs
-		return nil
+		return false, nil
 	}
 
 	parts := strings.Split(typeDir, "/")
 	nb := len(parts)
 	if nb < 3 {
-		return fmt.Errorf("unexpected number of parts in type dir: %d", len(parts))
+		return false, fmt.Errorf("unexpected number of parts in type dir: %d", len(parts))
 	}
 	dayDir, tpDir := parts[nb-2], parts[nb-1]
 	tempFilename := filename + ".part"
 	fClient := datatypeCl.NewFileClient(tempFilename)
 	if _, err := fClient.Create(context.TODO(), fSize, nil); err != nil {
-		return fmt.Errorf("failed to create file %v: %v", tempFilename, err)
+		return false, fmt.Errorf("failed to create file %v: %v", tempFilename, err)
 	}
 
 	if err := fClient.UploadFile(context.TODO(), f, nil); err != nil {
-		return fmt.Errorf("failed to upload contents for file %v: %v", tempFilename, err)
+		return false, fmt.Errorf("failed to upload contents for file %v: %v", tempFilename, err)
 	}
 
 	rnPath := filepath.Join(dayDir, tpDir, filename)
 	if _, err := fClient.Rename(context.TODO(), rnPath, nil); err != nil {
-		return fmt.Errorf("failed to rename %v into %v: %v", tempFilename, filename, err)
+		return false, fmt.Errorf("failed to rename %v into %v: %v", tempFilename, filename, err)
 	}
 
 	logger.LogAndSend(fmt.Sprintf("Successfully uploaded to Azure: %v", fullPath))
-	return nil
+	return true, nil
 }
 
 // should be a const, but actually a var so we can change it during tests
