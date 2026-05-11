@@ -20,7 +20,6 @@ import (
 
 	"github.com/arribada/marlin-common/pkg/datatype"
 	"github.com/arribada/marlin-common/pkg/sat"
-	"github.com/arribada/marlin-core/collector/pkg/logger"
 	lpmio "github.com/arribada/marlin-core/collector/pkg/lpm/io"
 	"github.com/arribada/marlin-core/collector/pkg/types"
 	"golang.org/x/sys/unix"
@@ -31,6 +30,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azfile/share"
 	"github.com/fsnotify/fsnotify"
 )
+
+var logger = log.New(os.Stderr, "Watcher: ", log.Default().Flags()|log.Lmsgprefix)
 
 type Config struct {
 	Enabled bool
@@ -183,7 +184,7 @@ func (ew *EventsWatcher) trackButtonPresses() {
 				},
 			}
 			if err := datatype.WriteEventFile(ew.config.DataDir, event, datatype.ButtonPress); err != nil {
-				logger.LogAndSend(fmt.Sprintf("while writing button press event: %v", err))
+				logger.Printf("while writing button press event: %v", err)
 			}
 			ew.lastButtonPress = now
 			if bp {
@@ -194,10 +195,10 @@ func (ew *EventsWatcher) trackButtonPresses() {
 					select {
 					case latestPos = <-ew.chans.Position:
 					case <-tm.C:
-						log.Printf("timed out on receiving GPS position for alert. Proceeding without a position.")
+						logger.Printf("timed out on receiving GPS position for alert. Proceeding without a position.")
 					}
 				case <-tm.C:
-					log.Printf("timed out on requesting GPS position for alert. Proceeding without a position.")
+					logger.Printf("timed out on requesting GPS position for alert. Proceeding without a position.")
 				}
 
 				if err := lpmio.SendAlert(sat.Alert{
@@ -205,7 +206,7 @@ func (ew *EventsWatcher) trackButtonPresses() {
 					Latitude:  latestPos.Latitude,
 					Longitude: latestPos.Longitude,
 				}); err != nil {
-					log.Printf("failed to send alert on button press: %v", err)
+					logger.Printf("failed to send alert on button press: %v", err)
 				}
 			}
 		}()
@@ -250,28 +251,28 @@ func (du *DuWatcher) Update() error {
 // TODO: move that to the GC? or to the data browser?
 func (du *DuWatcher) loop(ctx context.Context) {
 	if du == nil {
-		logger.LogAndSend("Storage space watcher not enabled")
+		logger.Printf("Storage space watcher not enabled")
 		return
 	}
 
 	// Always log storage space once on startup
 	if err := du.Update(); err != nil {
-		logger.LogAndSend(fmt.Sprintf("while storage watcher updating: %v", err))
+		logger.Printf("while storage watcher updating: %v", err)
 	} else {
-		logger.LogAndSend(fmt.Sprintf("Storage space usage: %dMB/%dMB used", (du.Total-du.Free)/1e6, du.Total/1e6), true)
+		logger.Printf("Storage space usage: %dMB/%dMB used", (du.Total-du.Free)/1e6, du.Total/1e6)
 	}
 
 	for {
 		if err := du.Update(); err != nil {
-			logger.LogAndSend(fmt.Sprintf("while storage watcher updating: %v", err))
+			logger.Printf("while storage watcher updating: %v", err)
 		}
 
 		if du.Used > du.threshold {
-			logger.LogAndSend(fmt.Sprintf("WARNING: Storage space threshold (%4.2f) exceeded: %4.2f. Space left: %dMB", du.threshold, du.Used, du.Free/1e6), true)
+			logger.Printf("WARNING: Storage space threshold (%4.2f) exceeded: %4.2f. Space left: %dMB", du.threshold, du.Used, du.Free/1e6)
 		}
 
 		if du.interval <= 0 {
-			logger.LogAndSend("Storage watcher loop disabled by interval, only trying once")
+			logger.Printf("Storage watcher loop disabled by interval, only trying once")
 			return
 		}
 
@@ -314,7 +315,7 @@ func (sw *EventsWatcher) Run(ctx context.Context) error {
 	go sw.up.loop(ctx)
 	go sw.du.loop(ctx)
 
-	logger.LogAndSend("starting to watch " + sw.config.DataDir)
+	logger.Printf("starting to watch %v", sw.config.DataDir)
 
 	// N.B: important to add by fullPath here, to make everything after easier.
 	if err := sw.watcher.Add(sw.config.DataDir); err != nil {
@@ -338,7 +339,7 @@ func (sw *EventsWatcher) Run(ctx context.Context) error {
 			if !ok {
 				panic("Errors chan unexpectedly closed")
 			}
-			log.Printf("file watcher error: %v", err)
+			logger.Printf("file watcher error: %v", err)
 		}
 	}
 }
@@ -350,7 +351,7 @@ func (ew *EventsWatcher) handleEvent(event fsnotify.Event) {
 
 	fi, err := os.Stat(fullPath)
 	if err != nil {
-		logger.LogAndSend(fmt.Sprintf("error while statting file %s: %v", fullPath, err))
+		logger.Printf("error while statting file %s: %v", fullPath, err)
 		return
 	}
 
@@ -359,10 +360,10 @@ func (ew *EventsWatcher) handleEvent(event fsnotify.Event) {
 	}
 
 	if isSpeech(name) {
-		logger.LogAndSend(fmt.Sprintf("New speech file detected: %s", name))
+		logger.Printf("New speech file detected: %s", name)
 		go func() {
 			if _, err := ew.archiveFile(datatype.Speech, fullPath); err != nil {
-				logger.LogAndSend(fmt.Sprintf("error while archiving file %s: %v", fullPath, err))
+				logger.Printf("error while archiving file %s: %v", fullPath, err)
 				return
 			}
 		}()
@@ -370,10 +371,10 @@ func (ew *EventsWatcher) handleEvent(event fsnotify.Event) {
 	}
 
 	if isAudio(name) {
-		logger.LogAndSend(fmt.Sprintf("New audio file detected: %s", name))
+		logger.Printf("New audio file detected: %s", name)
 		go func() {
 			if _, err := ew.archiveFile(datatype.Audio, fullPath); err != nil {
-				logger.LogAndSend(fmt.Sprintf("error while archiving file %s: %v", fullPath, err))
+				logger.Printf("error while archiving file %s: %v", fullPath, err)
 				return
 			}
 		}()
@@ -381,18 +382,18 @@ func (ew *EventsWatcher) handleEvent(event fsnotify.Event) {
 	}
 
 	if isVideo(name) {
-		logger.LogAndSend(fmt.Sprintf("New video file detected: %s", name))
+		logger.Printf("New video file detected: %s", name)
 		go func() {
 			newFullPath, err := ew.archiveFile(datatype.Video, fullPath)
 			if err != nil {
-				logger.LogAndSend(fmt.Sprintf("error while archiving file %s: %v", fullPath, err), true)
+				logger.Printf("error while archiving file %s: %v", fullPath, err)
 				if newFullPath == "" {
 					return
 				}
 				// we keep going because we still do have a vid file at newFullPath to probe
 			}
 			if _, err := ProbeVid(newFullPath); err != nil {
-				logger.LogAndSend(fmt.Sprintf("error while probing video file %s: %v", newFullPath, err), true)
+				logger.Printf("error while probing video file %s: %v", newFullPath, err)
 				return
 			}
 		}()
@@ -401,11 +402,11 @@ func (ew *EventsWatcher) handleEvent(event fsnotify.Event) {
 
 	if isGPS(name) {
 		if ew.config.Verbose {
-			log.Printf("New gps file detected: %s", name)
+			logger.Printf("New gps file detected: %s", name)
 		}
 		go func() {
 			if _, err := ew.archiveFile(datatype.GPS, fullPath); err != nil {
-				logger.LogAndSend(fmt.Sprintf("error while archiving file %s: %v", fullPath, err))
+				logger.Printf("error while archiving file %s: %v", fullPath, err)
 				return
 			}
 		}()
@@ -413,17 +414,17 @@ func (ew *EventsWatcher) handleEvent(event fsnotify.Event) {
 	}
 
 	if isButtonPress(name) {
-		logger.LogAndSend(fmt.Sprintf("New button press event file detected: %s", name))
+		logger.Printf("New button press event file detected: %s", name)
 		go func() {
 			if _, err := ew.archiveFile(datatype.ButtonPress, fullPath); err != nil {
-				logger.LogAndSend(fmt.Sprintf("error while archiving file %s: %v", fullPath, err))
+				logger.Printf("error while archiving file %s: %v", fullPath, err)
 				return
 			}
 		}()
 		return
 	}
 
-	log.Println("Unsupported file, doing nothing: ", name)
+	logger.Printf("Unsupported file (%v), doing nothing", name)
 }
 
 func (sw *EventsWatcher) archiveFile(dataType int, fullPath string) (string, error) {
@@ -542,7 +543,7 @@ func newUploader(cfg Config) (*uploader, error) {
 
 func (up *uploader) loop(ctx context.Context) {
 	if up == nil || up.azShareCl == nil {
-		logger.LogAndSend("Uploading to Azure not enabled")
+		logger.Printf("Uploading to Azure not enabled")
 		return
 	}
 
@@ -551,7 +552,7 @@ func (up *uploader) loop(ctx context.Context) {
 			TimeStart: time.Now().UTC(),
 		}
 		if err := up.uploadAll(); err != nil {
-			logger.LogAndSend(fmt.Sprintf("while the uploader was walking the tree: %v", err), true)
+			logger.Printf("while the uploader was walking the tree: %v", err)
 			run.Err = err
 		}
 		run.TimeEnd = time.Now().UTC()
@@ -559,7 +560,7 @@ func (up *uploader) loop(ctx context.Context) {
 		run.FilesSeen = up.filesSeen
 		run.FilesToUpload = up.filesToUpload
 		// TODO: better report
-		log.Printf("upload run report: %v", run)
+		logger.Printf("upload run report: %v", run)
 
 		connectionStatusMu.Lock()
 		connectionStatus = (run.Err == nil)
@@ -568,7 +569,7 @@ func (up *uploader) loop(ctx context.Context) {
 		// TODO: re-add something to monitor there's no files at the root?
 
 		if up.interval <= 0 {
-			logger.LogAndSend("Uploading loop disabled by interval, only trying once")
+			logger.Printf("Uploading loop disabled by interval, only trying once")
 			return
 		}
 
@@ -581,7 +582,7 @@ func (up *uploader) loop(ctx context.Context) {
 		if run.Err != nil {
 			// TODO: add a bit of a backoff, especially on systematic error?
 			// the goal is of course to find and phase out all such errors though.
-			log.Printf("restarting upload run immediately because there was an error")
+			logger.Printf("restarting upload run immediately because there was an error")
 			time.Sleep(3 * time.Second)
 			continue
 		}
@@ -740,7 +741,7 @@ func (up *uploader) uploadType(datetimeCl *directory.Client, dayDir, typeDir str
 			// least we voluntarily do not remove the .upload marker, so that this
 			// gets logged everytime.
 			// return fmt.Errorf("upload marker file (%s) found, but corresponding file (%s) not found", name, fileToUpload)
-			log.Printf("upload marker file (%s) found, but corresponding file (%s) not found. Skipping.", name, fileToUpload)
+			logger.Printf("upload marker file (%s) found, but corresponding file (%s) not found. Skipping.", name, fileToUpload)
 			return nil
 		}
 		up.filesToUpload++
@@ -786,7 +787,7 @@ func (up *uploader) uploadFile(datatypeCl *directory.Client, typeDir, filename s
 
 	// TODO: should we validate more strictly, i.e. by common datatype?
 	if strings.HasSuffix(filename, ".") {
-		log.Printf("skipping upload of empty file %v", filename)
+		logger.Printf("skipping upload of empty file %v", filename)
 		// skip hidden files, notably the .DS_Store bs
 		return false, nil
 	}
@@ -823,7 +824,7 @@ func (up *uploader) uploadFile(datatypeCl *directory.Client, typeDir, filename s
 		if rSize > fSize {
 			return false, fmt.Errorf("refusing to overwrite remote file (%v) with smaller local one", filename)
 		}
-		log.Printf("Overwriting (while renaming) remote file %v with local file", filename)
+		logger.Printf("Overwriting (while renaming) remote file %v with local file", filename)
 		b := true
 		if _, err := fClient.Rename(context.TODO(), rnPath,
 			&file.RenameOptions{ReplaceIfExists: &b}); err != nil {
@@ -831,7 +832,7 @@ func (up *uploader) uploadFile(datatypeCl *directory.Client, typeDir, filename s
 		}
 	}
 
-	logger.LogAndSend(fmt.Sprintf("Successfully uploaded to Azure: %v", fullPath))
+	logger.Printf("Successfully uploaded to Azure: %v", fullPath)
 	return true, nil
 }
 

@@ -7,10 +7,13 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/arribada/marlin-core/collector/pkg/config"
 	"github.com/arribada/marlin-core/collector/pkg/watcher"
 )
+
+var logger = log.New(os.Stderr, "(config) Server: ", log.Default().Flags()|log.Lmsgprefix)
 
 type cfgHandler struct {
 	cfg *config.Config
@@ -19,7 +22,7 @@ type cfgHandler struct {
 func (c *cfgHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	data, err := json.Marshal(c.cfg)
 	if err != nil {
-		log.Printf("while encoding runtime config: %v", err)
+		logger.Printf("while encoding runtime config: %v", err)
 		http.Error(w, "error while encoding runtime config", http.StatusInternalServerError)
 		return
 	}
@@ -43,7 +46,7 @@ func (d *duHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := d.w.Update(); err != nil {
-		log.Printf("while updating du watcher: %v", err)
+		logger.Printf("while updating du watcher: %v", err)
 		http.Error(w, "error while updating du watcher", http.StatusInternalServerError)
 		return
 	}
@@ -55,7 +58,7 @@ func (d *duHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	data, err := json.Marshal(sr)
 	if err != nil {
-		log.Printf("while encoding storage report: %v", err)
+		logger.Printf("while encoding storage report: %v", err)
 		http.Error(w, "error while encoding storage report", http.StatusInternalServerError)
 		return
 	}

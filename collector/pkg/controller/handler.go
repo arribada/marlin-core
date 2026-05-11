@@ -9,10 +9,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/arribada/marlin-core/collector/pkg/types"
 )
+
+var logger = log.New(os.Stderr, "Controller handler: ", log.Default().Flags()|log.Lmsgprefix)
 
 const (
 	ComponentName = "capture controller"
@@ -71,17 +74,17 @@ func (c *Controller) buttonPressEvent(start bool) {
 	select {
 	case c.chans.ButtonPress <- start:
 		if c.verbose {
-			log.Printf("controller handler: button press event sent to watcher")
+			logger.Printf("button press event sent to watcher")
 		}
 	case <-time.After(time.Second):
 		if c.verbose {
-			log.Printf("controller handler: time out on sending button press event")
+			logger.Printf("time out on sending button press event")
 		}
 	}
 }
 
 func (c *Controller) Run(ctx context.Context) error {
-	log.Printf("controller handler starting")
+	logger.Printf("starting")
 
 	mux := http.NewServeMux()
 	mux.Handle("/", c)
@@ -93,39 +96,39 @@ func (c *Controller) Run(ctx context.Context) error {
 	idleConnsClosed := make(chan struct{})
 	go func() {
 		<-ctx.Done()
-		log.Printf("shutting down controller handler")
+		logger.Printf("shutting down")
 		if err := srv.Shutdown(context.Background()); err != nil {
 			// Error from closing listeners, or context timeout:
-			log.Printf("while shutting down controller handler: %v", err)
+			logger.Printf("while shutting: %v", err)
 		}
 		close(idleConnsClosed)
 	}()
 
-	log.Printf("Starting to serve for HTTP for start/stop signals on %s", c.host)
+	logger.Printf("Starting to serve for HTTP for start/stop signals on %s", c.host)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		return fmt.Errorf("controller handler error: %v", err)
+		return fmt.Errorf("while starting to serve: %v", err)
 	}
-	log.Printf("Controller handler: waiting for idle connections")
+	logger.Printf("waiting for idle connections")
 	<-idleConnsClosed
-	log.Printf("Controller handler: idle connections terminated")
+	logger.Printf("idle connections terminated")
 	return nil
 }
 
 func (c *Controller) handleStart() {
 	if err := c.startAudio(); err != nil {
-		log.Printf("while calling audio recorder start: %v", err)
+		logger.Printf("while calling audio recorder start: %v", err)
 	}
 	if err := c.videoRec(true); err != nil {
-		log.Printf("while calling video recorder start: %v", err)
+		logger.Printf("while calling video recorder start: %v", err)
 	}
 }
 
 func (c *Controller) handleStop() {
 	if err := c.stopAudio(); err != nil {
-		log.Printf("while calling audio recorder stop: %v", err)
+		logger.Printf("while calling audio recorder stop: %v", err)
 	}
 	if err := c.videoRec(false); err != nil {
-		log.Printf("while calling video recorder stop: %v", err)
+		logger.Printf("while calling video recorder stop: %v", err)
 	}
 }
 
@@ -165,7 +168,7 @@ func (c *Controller) videoRec(start bool) error {
 	select {
 	case c.chans.VideoCtrl <- start:
 		if c.verbose {
-			log.Printf("controller handler: video recorder request sent")
+			logger.Printf("video recorder request sent")
 		}
 		select {
 		case c.chans.VideoState <- start:

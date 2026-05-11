@@ -33,6 +33,8 @@ import (
 	"go.bug.st/serial/enumerator"
 )
 
+var logger = log.New(os.Stderr, "LPM: ", log.Default().Flags()|log.Lmsgprefix)
+
 type Config struct {
 	Enabled bool
 	Verbose bool
@@ -61,11 +63,7 @@ type Config struct {
 	DataBrowserURL      string
 }
 
-var (
-	logger = log.New(os.Stdout, "LPM: ", log.Default().Flags()|log.Lmsgprefix)
-
-	statusUpdatePeriod = 30 * time.Second
-)
+var statusUpdatePeriod = 30 * time.Second
 
 // for passing around the cfg, and for caching some states
 type systemState struct {
@@ -80,6 +78,8 @@ func Run(cfg Config, ctx context.Context) error {
 		return nil
 	}
 
+	// lpmio.Verbose = cfg.Verbose
+
 	if cfg.Device == "" {
 		dev, err := findSerialUSBDevice(cfg.DeviceID, true)
 		if err != nil {
@@ -88,14 +88,14 @@ func Run(cfg Config, ctx context.Context) error {
 		cfg.Device = dev
 	}
 
-	logger.Printf("LPM device: %v", cfg.Device)
+	logger.Printf("using device: %v", cfg.Device)
 	port, err := lpmio.OpenPort(cfg.Device)
 	if err != nil {
 		return fmt.Errorf("while opening LPM as serial device: %v", err)
 	}
 	defer func() {
 		if err := port.Close(); err != nil {
-			logger.Printf("while closing serial connection to LPM: %v", err)
+			logger.Printf("while closing serial connection: %v", err)
 		}
 	}()
 
@@ -130,7 +130,7 @@ func (ss *systemState) sendStatuses(ctx context.Context) {
 		case <-time.After(statusUpdatePeriod):
 		}
 		if err := ss.sendCoreStatus(ctx); err != nil {
-			logger.Printf("%v", err)
+			logger.Printf("while sending core status %v", err)
 			continue
 		}
 	}
@@ -291,7 +291,7 @@ func (ss *systemState) tailscaleStatus(ctx context.Context) pb.CoreStatus_Status
 	cancel()
 
 	if err != nil {
-		logger.Printf("pinging GUS over TS: %v", err)
+		logger.Printf("while pinging GUS over TS: %v", err)
 		return pb.CoreStatus_OFFLINE
 	}
 

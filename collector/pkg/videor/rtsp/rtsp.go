@@ -30,6 +30,8 @@ import (
 // To easily test this package as a "program":
 // /user/collect -host=:7140 -captain="" -video=true -gps=false -datadir=/tmp/marlin -v=true -video_device='rtsp://foo:bar@192.168.87.250:554/live1s1.sdp' -video_split=1m
 
+var logger = log.New(os.Stderr, "Video: ", log.Default().Flags()|log.Lmsgprefix)
+
 var (
 	statusMu sync.RWMutex
 	status   bool
@@ -47,8 +49,6 @@ const (
 )
 
 var pktTimeout = 5 * time.Second
-
-var logger = log.New(os.Stdout, "Video: ", log.Default().Flags()|log.Lmsgprefix)
 
 type Config struct {
 	// e.g. on Hilook:
@@ -401,7 +401,7 @@ func (v *Videor) recordLoop(ctx context.Context) {
 			case v.recordStart <- struct{}{}:
 				logger.Printf("Auto-restarting recording")
 			case <-time.After(5 * time.Second):
-				logger.Printf("Failed to auto-restart video recording")
+				logger.Printf("Failed to auto-restart recording")
 			}
 		}()
 	}
@@ -488,6 +488,10 @@ func (vr *Videor) connect() error {
 	c := &gortsplib.Client{
 		Scheme: u.Scheme,
 		Host:   u.Host,
+		OnPacketsLost: func(lost uint64) {
+			// TODO: maybe later we do better, and rate limit the spam or something.
+			// But for now we have this function to completely kill the "RTP packets lost" log spam.
+		},
 	}
 
 	// connect to the server

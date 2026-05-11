@@ -19,12 +19,14 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+var logger = log.New(os.Stderr, "LPM: ", log.Default().Flags()|log.Lmsgprefix)
+
 const (
 	LDA2Size = 24 // LDA2 is 196 bits, but 192 bits is ok too.
 )
 
 var (
-	logger = log.New(os.Stdout, "LPM: ", log.Default().Flags()|log.Lmsgprefix)
+	Verbose bool
 
 	mu          sync.RWMutex
 	initialized bool
@@ -74,7 +76,7 @@ func InitRetry(sysInit pb.SysInit, ctx context.Context) {
 		if err == nil {
 			return
 		}
-		logger.Printf("while setting up SMD: %v", err)
+		logger.Printf("while sending sys init: %v", err)
 		logger.Printf("retrying in %v", pause)
 		select {
 		case <-ctx.Done():
@@ -130,11 +132,15 @@ func send(data []byte, id uint32, initCheck bool) error {
 		return fmt.Errorf("Wing not initialized")
 	}
 
-	logger.Printf("SENDING MESSAGE: %v", string(data))
+	if Verbose {
+		logger.Printf("sending message: %x", data)
+	}
 	if _, err := port.Write(data); err != nil {
 		return fmt.Errorf("while sending message: %v", err)
 	}
-	logger.Println("MESSAGE SENT")
+	if Verbose {
+		logger.Printf("message sent")
+	}
 
 	tm := time.NewTimer(60 * time.Second)
 	for {
@@ -151,15 +157,13 @@ func send(data []byte, id uint32, initCheck bool) error {
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
-		if rply == pb.LpmReply_ERROR {
-			return fmt.Errorf("ERROR response to msg %d", id)
-		}
 		if rply == pb.LpmReply_OK {
-			logger.Printf("OK response to msg %d", id)
+			if Verbose {
+				logger.Printf("OK response to msg %d", id)
+			}
 			break
 		}
-		// TODO: remove
-		return fmt.Errorf("FILLER response to msg %d", id)
+		return fmt.Errorf("ERROR response to msg %d", id)
 	}
 	initialized = true
 	return nil
@@ -173,7 +177,7 @@ func GetReplies(ctx context.Context) {
 		default:
 		}
 		if err := GetReply(); err != nil {
-			logger.Printf("%v", err)
+			logger.Printf("while getting reply: %v", err)
 			continue
 		}
 	}
@@ -191,15 +195,14 @@ func GetReply() error {
 		return fmt.Errorf("empty reply")
 	}
 	data := p[:n]
-	for _, v := range data {
-		fmt.Printf("%x ", v)
-	}
 
 	var reply pb.LpmReply
 	if err := proto.Unmarshal(data, &reply); err != nil {
 		return fmt.Errorf("while decoding message: %v", err)
 	}
-	fmt.Println("REPLY: ", reply)
+	if Verbose {
+		logger.Printf("reply: %#v", reply)
+	}
 
 	rcvdMu.Lock()
 	rcvd[reply.MsgId] = reply.Response

@@ -27,7 +27,7 @@ import (
 	"go.bug.st/serial/enumerator"
 )
 
-var logger = log.New(os.Stdout, "GPS: ", log.Default().Flags()|log.Lmsgprefix)
+var logger = log.New(os.Stderr, "GPS: ", log.Default().Flags()|log.Lmsgprefix)
 
 var (
 	statusMu sync.RWMutex
