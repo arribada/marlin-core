@@ -1,6 +1,6 @@
 module gokrazy/build/github.com/arribada/marlin-core/transcriber
 
-go 1.22.2
+go 1.24
 
 replace github.com/arribada/marlin-core/transcriber => /home/marlin/src/github.com/arribada/marlin-core/transcriber
 

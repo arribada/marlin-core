@@ -1,6 +1,6 @@
 module gokrazy/build/github.com/arribada/marlin-core/collector
 
-go 1.24.0
+go 1.26.1
 
 replace github.com/arribada/marlin-core/collector => /home/marlin/src/github.com/arribada/marlin-core/collector
 

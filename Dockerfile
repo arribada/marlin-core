@@ -1,4 +1,4 @@
-FROM goreleaser/goreleaser-cross:v1.24.6@sha256:81e07633c633260da83369d2fbeb972fb746e5e613c8699cfa41fdec9c21340d AS builder
+FROM goreleaser/goreleaser-cross:v1.26@sha256:bd51e63c1432305eb0309cdf3bff11e5ae6419cefb10839fea3e705f3e5d57da AS builder
 
 RUN apt-get update
 # unzip needed for ingest
