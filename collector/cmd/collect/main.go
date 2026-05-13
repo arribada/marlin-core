@@ -21,7 +21,6 @@ import (
 	"github.com/arribada/marlin-core/collector/pkg/controller"
 	"github.com/arribada/marlin-core/collector/pkg/gpsr"
 	"github.com/arribada/marlin-core/collector/pkg/gui"
-	"github.com/arribada/marlin-core/collector/pkg/logger"
 	"github.com/arribada/marlin-core/collector/pkg/lpm"
 	"github.com/arribada/marlin-core/collector/pkg/types"
 	"github.com/arribada/marlin-core/collector/pkg/videor/rtsp"
@@ -29,28 +28,34 @@ import (
 	"github.com/mpl/basicauth"
 )
 
+var logger = log.New(os.Stderr, "Collector: ", log.Default().Flags()|log.Lmsgprefix)
+
 var theChans types.Chans
 
 func main() {
 	cfg, err := config.Parse()
 	if err != nil {
-		log.Fatalf("while loading configuration: %v", err)
+		logger.Fatalf("while loading configuration: %v", err)
 	}
-	logger.LogAndSend(fmt.Sprintf("configuration loaded:\n%+v", cfg))
+	logger.Printf("configuration loaded:\n%+v", cfg)
 
 	if cfg.Captain != "" {
 		if err := utils.WaitForDrive(cfg.Captain); err != nil {
-			log.Fatal(err)
+			logger.Fatalf("while waiting for captain: %v", err)
 		}
 	}
 
-	go getReport(cfg.ReportURL)
+	go func() {
+		if err := getReport(cfg.ReportURL); err != nil {
+			log.Printf("getReport error: %v", err)
+		}
+	}()
 
 	var wg sync.WaitGroup
 	startServices(context.Background(), &wg, cfg)
 
 	wg.Wait()
-	log.Printf("Collector terminated")
+	logger.Printf("terminated")
 }
 
 // all the services are independent from each other, and each run
@@ -64,7 +69,7 @@ func startServices(ctx context.Context, wg *sync.WaitGroup, cfg *config.Config) 
 	go func() {
 		defer func() {
 			wg.Done()
-			log.Printf("Routine terminated: signal handler")
+			logger.Printf("Routine terminated: signal handler")
 		}()
 		runSignalHandler(cancel)
 	}()
@@ -73,7 +78,7 @@ func startServices(ctx context.Context, wg *sync.WaitGroup, cfg *config.Config) 
 	go func() {
 		defer func() {
 			wg.Done()
-			log.Printf("Routine terminated: config server")
+			logger.Printf("Routine terminated: config server")
 		}()
 		runConfigserver(subCtx, cfg)
 	}()
@@ -82,7 +87,7 @@ func startServices(ctx context.Context, wg *sync.WaitGroup, cfg *config.Config) 
 	go func() {
 		defer func() {
 			wg.Done()
-			log.Printf("Routine terminated: sat comms")
+			logger.Printf("Routine terminated: sat comms")
 		}()
 		runSatComms(subCtx, cfg.Sat)
 	}()
@@ -91,7 +96,7 @@ func startServices(ctx context.Context, wg *sync.WaitGroup, cfg *config.Config) 
 	go func() {
 		defer func() {
 			wg.Done()
-			log.Printf("Routine terminated: GPS")
+			logger.Printf("Routine terminated: GPS")
 		}()
 		runGPS(subCtx, cfg.GPSr)
 	}()
@@ -100,7 +105,7 @@ func startServices(ctx context.Context, wg *sync.WaitGroup, cfg *config.Config) 
 	go func() {
 		defer func() {
 			wg.Done()
-			log.Printf("Routine terminated: video")
+			logger.Printf("Routine terminated: video")
 		}()
 		runVideo(subCtx, cfg.VideorRTSP)
 	}()
@@ -109,7 +114,7 @@ func startServices(ctx context.Context, wg *sync.WaitGroup, cfg *config.Config) 
 	go func() {
 		defer func() {
 			wg.Done()
-			log.Printf("Routine terminated: data watcher")
+			logger.Printf("Routine terminated: data watcher")
 		}()
 		runDataWatcher(subCtx, cfg.DataWatcher)
 	}()
@@ -118,7 +123,7 @@ func startServices(ctx context.Context, wg *sync.WaitGroup, cfg *config.Config) 
 	go func() {
 		defer func() {
 			wg.Done()
-			log.Printf("Routine terminated: controller handler")
+			logger.Printf("Routine terminated: controller handler")
 		}()
 		runController(subCtx, cfg.Controller)
 	}()
@@ -132,15 +137,15 @@ func retry(ctx context.Context, serviceName string, do func()) {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("retry loop for %v interrupted by context", serviceName)
+			logger.Printf("retry loop for %v interrupted by context", serviceName)
 			return
 		default:
 		}
 		do()
-		log.Printf("retrying %v in %fs", serviceName, pause.Seconds())
+		logger.Printf("retrying %v in %fs", serviceName, pause.Seconds())
 		select {
 		case <-ctx.Done():
-			log.Printf("retry loop for %v interrupted by context", serviceName)
+			logger.Printf("retry loop for %v interrupted by context", serviceName)
 			return
 		case <-time.After(pause):
 		}
@@ -156,7 +161,7 @@ func runSignalHandler(cancel context.CancelFunc) {
 	signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 	defer signal.Stop(c)
 	sig := <-c
-	log.Printf("Interrupted by signal: %v", sig)
+	logger.Printf("Interrupted by signal: %v", sig)
 	cancel()
 }
 
@@ -167,22 +172,22 @@ func runConfigserver(ctx context.Context, cfg *config.Config) {
 	idleConnsClosed := make(chan struct{})
 	go func() {
 		<-ctx.Done()
-		log.Printf("shutting down config server")
+		logger.Printf("shutting down config server")
 		if err := srv.Shutdown(context.Background()); err != nil {
 			// Error from closing listeners, or context timeout:
-			log.Printf("while shutting down config server: %v", err)
+			logger.Printf("while shutting down config server: %v", err)
 		}
 		close(idleConnsClosed)
 	}()
 
-	log.Printf("Starting web server on %v", srv.Addr)
+	logger.Printf("Starting web server on %v", srv.Addr)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Printf("config server error: %v", err)
+		logger.Printf("config server error: %v", err)
 		return
 	}
-	log.Printf("Config server: waiting for idle connections")
+	logger.Printf("Config server: waiting for idle connections")
 	<-idleConnsClosed
-	log.Printf("Config server: idle connections terminated")
+	logger.Printf("Config server: idle connections terminated")
 }
 
 func runSatComms(ctx context.Context, cfg lpm.Config) {
@@ -191,7 +196,7 @@ func runSatComms(ctx context.Context, cfg lpm.Config) {
 	}
 	retry(ctx, "Sat comms", func() {
 		if err := lpm.Run(cfg, ctx); err != nil {
-			log.Printf("sat comms error: %v", err)
+			logger.Printf("sat comms error: %v", err)
 		}
 	})
 }
@@ -204,11 +209,11 @@ func runGPS(ctx context.Context, cfg gpsr.Config) {
 	retry(ctx, "GPS recorder", func() {
 		gps, err := gpsr.New(cfg, theChans.Position)
 		if err != nil {
-			log.Printf("while initializing GPS recorder: %v", err)
+			logger.Printf("while initializing GPS recorder: %v", err)
 			return
 		}
 		if err := gps.Run(ctx); err != nil {
-			log.Printf("gps recorder error: %v", err)
+			logger.Printf("gps recorder error: %v", err)
 		}
 	})
 }
@@ -221,12 +226,12 @@ func runVideo(ctx context.Context, cfg rtsp.Config) {
 	retry(ctx, "Video recorder", func() {
 		vid, err := rtsp.New(cfg, theChans.VideoCtrl)
 		if err != nil {
-			log.Printf("while initializing Video recorder: %v", err)
+			logger.Printf("while initializing Video recorder: %v", err)
 			return
 		}
 
 		if err := vid.Run(ctx); err != nil {
-			log.Printf("video recorder error: %v", err)
+			logger.Printf("video recorder error: %v", err)
 		}
 	})
 }
@@ -240,12 +245,12 @@ func runDataWatcher(ctx context.Context, cfg watcher.Config) {
 	retry(ctx, "Data Watcher", func() {
 		dw, err := watcher.New(cfg, &theChans)
 		if err != nil {
-			log.Printf("while initializing data watcher: %v", err)
+			logger.Printf("while initializing data watcher: %v", err)
 			return
 		}
 
 		if err := dw.Run(ctx); err != nil {
-			log.Printf("data watcher error: %v", err)
+			logger.Printf("data watcher error: %v", err)
 		}
 	})
 }
@@ -257,47 +262,44 @@ func runController(ctx context.Context, cfg controller.Config) {
 	retry(ctx, "Controller Handler", func() {
 		ctrl, err := controller.New(cfg, &theChans)
 		if err != nil {
-			log.Printf("while initializing the start/stop controller: %v", err)
+			logger.Printf("while initializing the start/stop controller: %v", err)
 			return
 		}
 
 		if err := ctrl.Run(ctx); err != nil {
-			log.Printf("controller handler error: %v", err)
+			logger.Printf("controller handler error: %v", err)
 		}
 	})
 }
 
-func getReport(reportURL string) {
+func getReport(reportURL string) error {
 	if reportURL == "" {
-		return
+		return nil
 	}
 	// NewUserPass automatically checks for AUTH_USERPASS
 	up, err := basicauth.NewUserPass("")
 	if err != nil {
-		log.Println("getReport: ", err.Error())
-		return
+		return err
 	}
 
 	time.Sleep(30 * time.Second)
 	req, err := http.NewRequest("GET", reportURL, nil)
 	if err != nil {
-		log.Println("getReport: ", err.Error())
-		return
+		return fmt.Errorf("while creating request: %v", err)
 	}
 	req.SetBasicAuth(up.U, up.P)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Println("getReport: ", err.Error())
-		return
+		return fmt.Errorf("while getting report: %v", err)
 	}
 	defer resp.Body.Close()
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Println("getReport: ", err.Error())
-		return
+		return fmt.Errorf("while reading report: %v", err)
 	}
 	// TODO: make it all in one line for goog cloud?
-	log.Println("Status report:\n", string(data))
+	logger.Println("Status report:\n", string(data))
+	return nil
 }
 
 func ExitOnErr(err error, msg string) {
@@ -308,6 +310,6 @@ func ExitOnErr(err error, msg string) {
 		if ok && details != nil {
 			caller = details.Name()
 		}
-		log.Fatalf("root execution error:%v msg:%v caller:%v", err, msg, caller)
+		logger.Fatalf("root execution error:%v msg:%v caller:%v", err, msg, caller)
 	}
 }
