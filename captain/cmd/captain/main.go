@@ -92,32 +92,52 @@ func main() {
 	go func() {
 		var device string
 		var err error
+		pause := time.Second
+		maxPause := 5 * time.Minute
+		// force a reboot if the device is not found after a few times, as
+		// it might indeed just have not been enumerated by kernel, which does
+		// happen sometimes.
+		tries := 0
+		maxTries := 10
 		for {
 			device, err = findDevice(flagDevice)
 			prepMu.Lock()
 			prepErr = err
+			prepMu.Unlock()
 			if err == nil {
 				log.Printf("device found")
-				prepMu.Unlock()
 				break
 			}
 			log.Printf("%v", err.Error())
-			prepMu.Unlock()
-			time.Sleep(time.Second)
+			tries++
+			if tries >= maxTries {
+				reboot()
+				return
+			}
+			time.Sleep(pause)
+			pause *= 2
+			if pause > maxPause {
+				pause = maxPause
+			}
 		}
 
+		pause = time.Second
+		maxPause = 5 * time.Minute
 		for {
 			err := checkAndPrep(device, flagLabel)
 			prepMu.Lock()
 			prepErr = err
+			prepMu.Unlock()
 			if err == nil {
 				log.Printf("SSD at %v ready", flagDevice)
-				prepMu.Unlock()
 				break
 			}
 			log.Printf("%v", err.Error())
-			prepMu.Unlock()
-			time.Sleep(time.Second)
+			time.Sleep(pause)
+			pause *= 2
+			if pause > maxPause {
+				pause = maxPause
+			}
 		}
 
 		if flagMount == "" {
@@ -125,6 +145,8 @@ func main() {
 			return
 		}
 
+		pause = time.Second
+		maxPause = 5 * time.Minute
 		for {
 			part, err := partDevice(device)
 			if err == nil {
@@ -133,14 +155,19 @@ func main() {
 			prepMu.Lock()
 			prepErr = err
 			if err == nil {
-				log.Printf("Drive mounted at %v", flagMount)
 				prepped = true
-				prepMu.Unlock()
+			}
+			prepMu.Unlock()
+			if err == nil {
+				log.Printf("Drive mounted at %v", flagMount)
 				break
 			}
 			log.Printf("%v", err.Error())
-			prepMu.Unlock()
-			time.Sleep(time.Second)
+			time.Sleep(pause)
+			pause *= 2
+			if pause > maxPause {
+				pause = maxPause
+			}
 		}
 		listenForSignals()
 	}()

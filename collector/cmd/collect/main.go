@@ -40,7 +40,7 @@ func main() {
 	logger.Printf("configuration loaded:\n%+v", cfg)
 
 	if cfg.Captain != "" {
-		if err := utils.WaitForDrive(cfg.Captain); err != nil {
+		if err := utils.WaitForDrive(cfg.Captain, 5*time.Minute); err != nil {
 			logger.Fatalf("while waiting for captain: %v", err)
 		}
 	}
