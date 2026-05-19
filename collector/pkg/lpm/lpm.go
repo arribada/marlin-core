@@ -63,7 +63,9 @@ type Config struct {
 	DataBrowserURL      string
 }
 
-var statusUpdatePeriod = 30 * time.Second
+var (
+	statusUpdatePeriod = 30 * time.Second
+)
 
 // for passing around the cfg, and for caching some states
 type systemState struct {
@@ -107,8 +109,12 @@ func Run(cfg Config, ctx context.Context) error {
 		Hostname:    cfg.Hostname,
 		WifiNetwork: cfg.WifiNetwork,
 	}
-	lpmio.InitRetry(sysInit, ctx)
+	if err := lpmio.InitRetry(&sysInit, ctx); err != nil {
+		return fmt.Errorf("while initializing device: %v", err)
+	}
 
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	go lpmio.GetReplies(ctx)
 
 	time.Sleep(time.Second)
@@ -116,22 +122,37 @@ func Run(cfg Config, ctx context.Context) error {
 	ss := &systemState{
 		cfg: cfg,
 	}
-	go ss.sendStatuses(ctx)
+	statusErrC := make(chan error)
+	go func() {
+		err := ss.sendStatuses(ctx)
+		if err == nil {
+			return
+		}
+		select {
+		case statusErrC <- fmt.Errorf("while sending core status: %v", err):
+		case <-time.After(5 * time.Second):
+		}
+	}()
 
-	<-ctx.Done()
-	return nil
+	select {
+	case <-ctx.Done():
+		return nil
+	case err := <-statusErrC:
+		return err
+	case err := <-lpmio.AlertErrC:
+		return err
+	}
 }
 
-func (ss *systemState) sendStatuses(ctx context.Context) {
+func (ss *systemState) sendStatuses(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return nil
 		case <-time.After(statusUpdatePeriod):
 		}
 		if err := ss.sendCoreStatus(ctx); err != nil {
-			logger.Printf("while sending core status %v", err)
-			continue
+			return err
 		}
 	}
 }
@@ -142,7 +163,7 @@ func (ss *systemState) sendCoreStatus(ctx context.Context) error {
 		return err
 	}
 
-	return lpmio.SendCoreStatus(coreStatus)
+	return lpmio.SendCoreStatus(&coreStatus)
 }
 
 // TODO: I think the different pb.CoreStatus don't really work, but

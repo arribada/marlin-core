@@ -37,6 +37,8 @@ var (
 
 	rcvdMu sync.RWMutex
 	rcvd   map[uint32]pb.LpmReply_Response = make(map[uint32]pb.LpmReply_Response)
+
+	AlertErrC = make(chan error)
 )
 
 func OpenPort(device string) (serial.Port, error) {
@@ -51,43 +53,34 @@ func OpenPort(device string) (serial.Port, error) {
 	return p, nil
 }
 
-// coping mechanism for the fact that one time out of two, first message ends up in failure.
-// TODO: investigate why. And when we figure it out, remove the
-// whole retry mechanism, as we have one at the caller level now.
-func InitRetry(sysInit pb.SysInit, ctx context.Context) {
+func InitRetry(sysInit *pb.SysInit, ctx context.Context) error {
 	mu.RLock()
 	if initialized {
 		mu.RUnlock()
-		return
+		return nil
 	}
 	mu.RUnlock()
 
-	pause := time.Second
-	maxPause := 5 * time.Minute
-	for {
+	var err error
+	// coping mechanism for the fact that one time out of two, first message ends up in failure.
+	// TODO: investigate why.
+	for i := 0; i < 2; i++ {
 		select {
 		case <-ctx.Done():
-			return
+			return nil
 		default:
 		}
 		go GetReply()
 		time.Sleep(time.Second)
-		err := sendSysInit(sysInit)
+		err = sendSysInit(sysInit)
 		if err == nil {
-			return
+			break
 		}
-		logger.Printf("while sending sys init: %v", err)
-		logger.Printf("retrying in %v", pause)
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(pause):
-		}
-		pause *= 2
-		if pause > maxPause {
-			pause = maxPause
-		}
+
+		time.Sleep(time.Second)
 	}
+
+	return err
 }
 
 func sendTX(msg []byte) error {
@@ -201,7 +194,7 @@ func GetReply() error {
 		return fmt.Errorf("while decoding message: %v", err)
 	}
 	if Verbose {
-		logger.Printf("reply: %#v", reply)
+		logger.Printf("reply: %#v", &reply)
 	}
 
 	rcvdMu.Lock()
@@ -210,13 +203,13 @@ func GetReply() error {
 	return nil
 }
 
-func SendCoreStatus(status pb.CoreStatus) error {
+func SendCoreStatus(status *pb.CoreStatus) error {
 	idMu.Lock()
 	id := msgID
 	msg := &pb.CoreMessage{
 		MsgId: id,
 		Message: &pb.CoreMessage_Status{
-			Status: &status,
+			Status: status,
 		},
 	}
 	msgID++
@@ -230,13 +223,13 @@ func SendCoreStatus(status pb.CoreStatus) error {
 	return send(out, id, true)
 }
 
-func sendSysInit(sysInit pb.SysInit) error {
+func sendSysInit(sysInit *pb.SysInit) error {
 	idMu.Lock()
 	id := msgID
 	msg := &pb.CoreMessage{
 		MsgId: id,
 		Message: &pb.CoreMessage_Init{
-			Init: &sysInit,
+			Init: sysInit,
 		},
 	}
 	msgID++
@@ -257,13 +250,28 @@ func AlertToBytes(alert sat.Alert) ([]byte, error) {
 func SendAlert(alert sat.Alert) error {
 	logger.Printf("Sending Alert for position (%f, %f) at %v", alert.Latitude, alert.Longitude, alert.Time)
 
+	// Even though we're returning the error, since we're a public func,
+	// we don't know how it's caller (currently the data watcher) is going
+	// to handle it. And we want to bubble it up, so we can cleanly log
+	// it and capture it in Goog Cloud Logging. So we bubble it up with
+	// the chan as well.
 	data, err := AlertToBytes(alert)
 	if err != nil {
-		return fmt.Errorf("while packing alert as bytes stream: %v", err)
+		err = fmt.Errorf("while packing alert as bytes stream: %v", err)
+		select {
+		case AlertErrC <- err:
+		case <-time.After(time.Second):
+		}
+		return err
 	}
 
 	if err := sendTX(data); err != nil {
-		return fmt.Errorf("while sending alert: %v", err)
+		err = fmt.Errorf("while sending alert: %v", err)
+		select {
+		case AlertErrC <- err:
+		case <-time.After(time.Second):
+		}
+		return err
 	}
 	return nil
 }

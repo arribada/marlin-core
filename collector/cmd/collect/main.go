@@ -196,7 +196,7 @@ func runSatComms(ctx context.Context, cfg lpm.Config) {
 	}
 	retry(ctx, "Sat comms", func() {
 		if err := lpm.Run(cfg, ctx); err != nil {
-			logger.Printf("sat comms error: %v", err)
+			logger.Printf("LPM error: %v", err)
 		}
 	})
 }
