@@ -65,7 +65,6 @@ type Config struct {
 	// recording. In continuous mode, recording is automatically restarted on errors.
 	RecTimeout    time.Duration
 	SplitDuration time.Duration
-	RecAuto       bool
 }
 
 func New(cfg Config, ctrlCh chan bool) (*Videor, error) {
@@ -80,7 +79,7 @@ func New(cfg Config, ctrlCh chan bool) (*Videor, error) {
 		packetC: make(chan *rtp.Packet, 100),
 	}
 	if cfg.RecTimeout <= 0 {
-		vr.forever = true
+		vr.Forever = true
 	}
 
 	return vr, nil
@@ -91,7 +90,7 @@ type Videor struct {
 
 	// if config.RecTimeout not positive, we record forever. And we ignore button
 	// presses. And we restart recording on critical errors.
-	forever bool
+	Forever bool
 
 	// receives "button presses" events.
 	// we can afford for it to be unbuffered (easier to reason with), because we're
@@ -142,10 +141,7 @@ func (v *Videor) Run(ctx context.Context) error {
 	}
 	v.captureDevice = dev
 
-	v.startListen(ctx)
-
-	<-ctx.Done()
-	return nil
+	return v.run(ctx)
 }
 
 func findCaptureDevice(captureDevice string) (string, error) {
@@ -285,7 +281,7 @@ func (v *Videor) handleRequest(start bool) {
 
 	// !start == stop
 	if !start {
-		if v.forever {
+		if v.Forever {
 			// ignoring stop requests
 			return
 		}
@@ -307,15 +303,26 @@ func (v *Videor) handleRequest(start bool) {
 	}
 }
 
-func (v *Videor) startListen(ctx context.Context) {
+func (v *Videor) run(ctx context.Context) error {
 	logger.Printf("starting to listen for events")
-	go v.recordLoop(ctx)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	errC := make(chan error)
+	go func() {
+		err := v.recording(ctx)
+		select {
+		case errC <- err:
+			return
+		case <-time.After(2 * time.Second):
+			logger.Printf("timeout on error surfacing for: %v", err)
+		}
+	}()
 
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
-				logger.Printf("listening event loop terminated")
 				return
 			case req := <-v.ctrlCh:
 				v.handleRequest(req)
@@ -323,45 +330,33 @@ func (v *Videor) startListen(ctx context.Context) {
 		}
 	}()
 
-	if !(v.config.RecAuto || v.forever) {
-		return
-	}
-
-	if v.config.RecAuto {
-		logger.Printf("Starting automatic video recording")
-	}
-	if v.forever {
+	go func() {
+		if !v.Forever {
+			return
+		}
 		logger.Printf("Starting perpetual video recording")
-	}
 
-	// we are technically racing with recordLoop startup, so let's give it a second
-	time.Sleep(time.Second)
-	v.handleRequest(true)
+		// we are technically racing with recordLoop startup, so let's give it a second
+		time.Sleep(time.Second)
+		v.handleRequest(true)
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil
+	case err := <-errC:
+		return err
+	}
 }
 
-// TODO: now that we have a retry mechanism in the caller (the
-// collector main), see if we want to try less hard in recordLoop and
-// actually return errors.
-func (v *Videor) recordLoop(ctx context.Context) {
-	autoRestartBackoff := time.Second
-	maxBackoff := 300 * time.Second
+func (v *Videor) recording(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return nil
 		case <-v.recordStart:
 		}
 		v.startTime = time.Now().UTC()
-		v.recordStopMu.RLock()
-		if v.recordStop != nil {
-			// called here, to free the previous recording context, in case the recording
-			// terminated by itself (by duration)
-			v.recordStop()
-		}
-		v.recordStopMu.RUnlock()
-
-		// making a child context because we now want a dedicated cancel func as a means
-		// of stopping the recording.
 		recordCtx, cancel := context.WithCancel(ctx)
 		v.recordStopMu.Lock()
 		v.recordStop = cancel
@@ -371,39 +366,14 @@ func (v *Videor) recordLoop(ctx context.Context) {
 		status = true
 		statusMu.Unlock()
 		err := v.record(recordCtx)
+		cancel()
 		logger.Printf("recording sequence over")
-		if err == nil {
-			autoRestartBackoff = time.Second
-			continue
-		}
 		statusMu.Lock()
 		status = false
 		statusMu.Unlock()
-
-		// TODO: terminate if it's a critical error, like no storage space anymore?
-		// And use an err chan to propagate the error upwards maybe?
-		logger.Printf("recording error: %v", err)
-
-		if !v.forever {
-			continue
+		if err != nil {
+			return err
 		}
-		// we auto-restart ourselves if we're in forever mode.
-		// but we still make the auto-restart back off if we're in a loop of systematic error.
-		go func() {
-			time.Sleep(autoRestartBackoff)
-			autoRestartBackoff *= 2
-			if autoRestartBackoff > maxBackoff {
-				autoRestartBackoff = maxBackoff
-			}
-			select {
-			case <-ctx.Done():
-				return
-			case v.recordStart <- struct{}{}:
-				logger.Printf("Auto-restarting recording")
-			case <-time.After(5 * time.Second):
-				logger.Printf("Failed to auto-restart recording")
-			}
-		}()
 	}
 }
 
@@ -419,10 +389,12 @@ func (vr *Videor) record(ctx context.Context) (err error) {
 		vr.cl.Close()
 	}()
 
-	if !vr.forever {
+	if !vr.Forever {
 		logger.Printf("starting to record for %v", vr.config.RecTimeout)
 	}
 
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	go func() {
 		// we don't want to do all that from within readPacket, because we
 		// have no control on whether/when OnPacketRTP is actually called, and
@@ -435,7 +407,7 @@ func (vr *Videor) record(ctx context.Context) (err error) {
 	}()
 
 	vr.cl.OnPacketRTP(vr.media, vr.frmt, func(pkt *rtp.Packet) {
-		vr.readPacket(pkt)
+		vr.readPacket(ctx, pkt)
 	})
 
 	// start playing
@@ -446,12 +418,12 @@ func (vr *Videor) record(ctx context.Context) (err error) {
 
 	// we're doing our own sync with vr.errC, because I think the Close
 	// VS Wait mechanism from the lib is buggy.
-	err = <-vr.errC
-	if err != nil {
-		return fmt.Errorf("recording error: %v", err)
+	select {
+	case <-ctx.Done():
+		return nil
+	case err = <-vr.errC:
+		return err
 	}
-
-	return nil
 }
 
 func (v *Videor) newMuxer(frmt *format.H264) (*mpegtsMuxer, error) {
@@ -494,15 +466,29 @@ func (vr *Videor) connect() error {
 		},
 	}
 
-	// connect to the server
+	// start the stream
 	if err := c.Start(); err != nil {
-		return err
+		return fmt.Errorf("while starting stream playing: %v", err)
 	}
 
 	// find available medias
-	desc, _, err := c.Describe(u)
+	// give it a few tries, because sometimes connecting to the cam
+	// over the network takes a couple of retries.
+	// And we don't want to surface that error, in case we're not in
+	// forever mode (in which case, there would not be any retry triggered
+	// from the top).
+	var desc *description.Session
+	pause := time.Second
+	for i := 0; i < 10; i++ {
+		desc, _, err = c.Describe(u)
+		if err == nil {
+			break
+		}
+		time.Sleep(pause)
+		pause *= 2
+	}
 	if err != nil {
-		return err
+		return fmt.Errorf("while describing stream: %v", err)
 	}
 
 	// find the H264 media and format
@@ -574,7 +560,6 @@ func (vr *Videor) writeVideoFile(concurrent bool) error {
 		logger.Printf("(intermediate) recording saved: %v", tsFile)
 	}
 
-	// TODO: remove concurrent mode, when we stop relying on ffmpeg.
 	if !concurrent {
 		if err := vr.writeMP4(tsFile); err != nil {
 			return fmt.Errorf("while writing MP4: %v", err)
@@ -582,6 +567,8 @@ func (vr *Videor) writeVideoFile(concurrent bool) error {
 		return nil
 	}
 
+	// TODO: remove concurrent mode, when we stop relying on ffmpeg.
+	// Or add a chan, to surface delayed error to the caller.
 	go func() {
 		if err := vr.writeMP4(tsFile); err != nil {
 			logger.Printf("while writing MP4: %v", err)
@@ -616,7 +603,7 @@ func (vr *Videor) writeMP4(tsFile string) error {
 func (vr *Videor) splitDuration() time.Duration {
 	// Split and save the whole recording into separate files.
 	// Respecting the total Rec timeout.
-	if vr.forever {
+	if vr.Forever {
 		// duration <= 0 in config means we record forever.
 		return vr.config.SplitDuration
 	}
@@ -639,7 +626,10 @@ const (
 // TODO: a map instead. anyway, make a struct and package for that and the above gross exceptions.
 var lastNonSuppressed time.Time
 
-func (vr *Videor) handlePacket(pkt *rtp.Packet) error {
+// TODO: actually return an error? I think as long as we're doing
+// mpeg-ts, it's harmless to skip some packets, and keep going with
+// the next ones.
+func (vr *Videor) handlePacket(pkt *rtp.Packet) {
 	// decode timestamp
 	pts, ok := vr.cl.PacketPTS(vr.media, pkt)
 	if !ok {
@@ -649,40 +639,40 @@ func (vr *Videor) handlePacket(pkt *rtp.Packet) error {
 				lastNonSuppressed = time.Now()
 			}
 		}
-		return nil
+		return
 	}
 
 	// extract access unit from RTP packets
 	au, err := vr.rtpDec.Decode(pkt)
 	if err != nil {
-		if !errors.Is(err, rtph264.ErrNonStartingPacketAndNoPrevious) && !errors.Is(err, rtph264.ErrMorePacketsNeeded) {
-			if vr.config.Verbose {
-				if strings.HasPrefix(err.Error(), invalidFUA) {
-					return nil
-				}
-				if strings.HasPrefix(err.Error(), discardingFrame) {
-					return nil
-				}
-				logger.Printf("rtp decoding error: %v", err)
-			}
-			return nil
+		if errors.Is(err, rtph264.ErrNonStartingPacketAndNoPrevious) || errors.Is(err, rtph264.ErrMorePacketsNeeded) {
+			// ignore/suppress these errors
+			return
 		}
-		return nil
+		// ignore more errors
+		if strings.HasPrefix(err.Error(), invalidFUA) {
+			return
+		}
+		if strings.HasPrefix(err.Error(), discardingFrame) {
+			return
+		}
+		if vr.config.Verbose {
+			logger.Printf("rtp decoding error: %v", err)
+		}
+		return
 	}
 
 	// encode the access unit into MPEG-TS
 	if err := vr.muxer.writeH264(au, pts); err != nil {
+		// TODO: do better, i.e. something smart that only suppresses duplicate messages
+		if strings.HasPrefix(err.Error(), reorderedFrames) {
+			return
+		}
 		if vr.config.Verbose {
-			// TODO: do better, i.e. something smart that only suppresses duplicate messages
-			if strings.HasPrefix(err.Error(), reorderedFrames) {
-				return nil
-			}
 			logger.Printf("while writing H264 stream: %v", err)
 		}
-		return nil
+		return
 	}
-
-	return nil
 }
 
 func (vr *Videor) handlePackets(ctx context.Context) (fErr error) {
@@ -697,18 +687,12 @@ func (vr *Videor) handlePackets(ctx context.Context) (fErr error) {
 			}
 			return nil
 		case pkt := <-vr.packetC:
-			// At the moment, from within handlePacket we actually ignore
-			// all errors, so we don't even need to check for errors on return
-			// here. If we ever change our minds about that, and decide to return
-			// on error here, we might want to write to disk whatever video we've
-			// had so far.
+			// N.B: being explicit here about the fact that we ignore errors in handlePacket()
 			vr.handlePacket(pkt)
 			pktTimer.Reset(pktTimeout)
 		case <-pktTimer.C:
 			return fmt.Errorf("timeout waiting for packet")
 		case <-splitTimer.C:
-			// This error handling is a lie atm, since writeVideoFile does not
-			// return any error in concurrent mode.
 			if err := vr.writeVideoFile(true); err != nil {
 				return fmt.Errorf("while writing video file: %v", err)
 			}
@@ -737,13 +721,9 @@ func (vr *Videor) handlePackets(ctx context.Context) (fErr error) {
 	}
 }
 
-func (vr *Videor) readPacket(pkt *rtp.Packet) {
-	tm := time.NewTimer(pktTimeout)
+func (vr *Videor) readPacket(ctx context.Context, pkt *rtp.Packet) {
 	select {
+	case <-ctx.Done():
 	case vr.packetC <- pkt:
-	// we need this timeout for termination. Otherwise OnPacketRTP
-	// deadlocks the final Close().
-	case <-tm.C:
-		return
 	}
 }

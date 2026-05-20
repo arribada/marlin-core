@@ -156,7 +156,7 @@ func parseWatcher() (*watcher.Config, error) {
 		flagAzureShare = azShare
 	}
 	w := &watcher.Config{
-		Enabled:        flagGPSEnabled,
+		Enabled:        flagWatcherEnabled,
 		Verbose:        flagVerbose,
 		DataDir:        flagDataDir,
 		AzureConn:      flagAzureConn,

@@ -98,7 +98,7 @@ func main() {
 		// it might indeed just have not been enumerated by kernel, which does
 		// happen sometimes.
 		tries := 0
-		maxTries := 10
+		maxTries := 7
 		for {
 			device, err = findDevice(flagDevice)
 			prepMu.Lock()

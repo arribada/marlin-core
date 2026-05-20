@@ -5,13 +5,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -87,9 +87,9 @@ func startServices(ctx context.Context, wg *sync.WaitGroup, cfg *config.Config) 
 	go func() {
 		defer func() {
 			wg.Done()
-			logger.Printf("Routine terminated: sat comms")
+			logger.Printf("Routine terminated: LPM")
 		}()
-		runSatComms(subCtx, cfg.Sat)
+		runLPM(subCtx, cfg.Sat)
 	}()
 
 	wg.Add(1)
@@ -129,7 +129,9 @@ func startServices(ctx context.Context, wg *sync.WaitGroup, cfg *config.Config) 
 	}()
 }
 
-func retry(ctx context.Context, serviceName string, do func()) {
+var noRetry = errors.New("no more retries")
+
+func retry(ctx context.Context, serviceName string, do func() error) {
 	// TODO: maybe add some jitter, but we only have a handful of services
 	// at most restarting at the same time, so no big deal.
 	pause := time.Second
@@ -141,7 +143,15 @@ func retry(ctx context.Context, serviceName string, do func()) {
 			return
 		default:
 		}
-		do()
+		err := do()
+		if err == noRetry {
+			logger.Printf("terminating retries for service: %v", serviceName)
+			return
+		}
+		if err == nil {
+			// reset the pause on successful run
+			pause = time.Second
+		}
 		logger.Printf("retrying %v in %fs", serviceName, pause.Seconds())
 		select {
 		case <-ctx.Done():
@@ -190,14 +200,16 @@ func runConfigserver(ctx context.Context, cfg *config.Config) {
 	logger.Printf("Config server: idle connections terminated")
 }
 
-func runSatComms(ctx context.Context, cfg lpm.Config) {
+func runLPM(ctx context.Context, cfg lpm.Config) {
 	if !cfg.Enabled {
 		return
 	}
-	retry(ctx, "Sat comms", func() {
+	retry(ctx, "Sat comms", func() error {
 		if err := lpm.Run(cfg, ctx); err != nil {
 			logger.Printf("LPM error: %v", err)
+			return err
 		}
+		return nil
 	})
 }
 
@@ -206,15 +218,17 @@ func runGPS(ctx context.Context, cfg gpsr.Config) {
 		return
 	}
 	theChans.Position = make(chan types.Position)
-	retry(ctx, "GPS recorder", func() {
+	retry(ctx, "GPS recorder", func() error {
 		gps, err := gpsr.New(cfg, theChans.Position)
 		if err != nil {
 			logger.Printf("while initializing GPS recorder: %v", err)
-			return
+			return err
 		}
 		if err := gps.Run(ctx); err != nil {
 			logger.Printf("gps recorder error: %v", err)
+			return err
 		}
+		return nil
 	})
 }
 
@@ -223,16 +237,21 @@ func runVideo(ctx context.Context, cfg rtsp.Config) {
 		return
 	}
 	theChans.VideoCtrl = make(chan bool)
-	retry(ctx, "Video recorder", func() {
+	retry(ctx, "Video recorder", func() error {
 		vid, err := rtsp.New(cfg, theChans.VideoCtrl)
 		if err != nil {
 			logger.Printf("while initializing Video recorder: %v", err)
-			return
+			return err
 		}
 
-		if err := vid.Run(ctx); err != nil {
+		err = vid.Run(ctx)
+		if err != nil {
 			logger.Printf("video recorder error: %v", err)
 		}
+		if !vid.Forever {
+			return noRetry
+		}
+		return err
 	})
 }
 
@@ -242,16 +261,18 @@ func runDataWatcher(ctx context.Context, cfg watcher.Config) {
 	}
 	theChans.VideoState = make(chan bool)
 	theChans.ButtonPress = make(chan bool)
-	retry(ctx, "Data Watcher", func() {
+	retry(ctx, "Data Watcher", func() error {
 		dw, err := watcher.New(cfg, &theChans)
 		if err != nil {
 			logger.Printf("while initializing data watcher: %v", err)
-			return
+			return err
 		}
 
 		if err := dw.Run(ctx); err != nil {
 			logger.Printf("data watcher error: %v", err)
+			return err
 		}
+		return nil
 	})
 }
 
@@ -259,16 +280,18 @@ func runController(ctx context.Context, cfg controller.Config) {
 	if !cfg.Enabled {
 		return
 	}
-	retry(ctx, "Controller Handler", func() {
+	retry(ctx, "Controller Handler", func() error {
 		ctrl, err := controller.New(cfg, &theChans)
 		if err != nil {
 			logger.Printf("while initializing the start/stop controller: %v", err)
-			return
+			return err
 		}
 
 		if err := ctrl.Run(ctx); err != nil {
 			logger.Printf("controller handler error: %v", err)
+			return err
 		}
+		return nil
 	})
 }
 
@@ -300,16 +323,4 @@ func getReport(reportURL string) error {
 	// TODO: make it all in one line for goog cloud?
 	logger.Println("Status report:\n", string(data))
 	return nil
-}
-
-func ExitOnErr(err error, msg string) {
-	if err != nil {
-		pc, _, _, ok := runtime.Caller(2)
-		details := runtime.FuncForPC(pc)
-		caller := ""
-		if ok && details != nil {
-			caller = details.Name()
-		}
-		logger.Fatalf("root execution error:%v msg:%v caller:%v", err, msg, caller)
-	}
 }
