@@ -114,9 +114,9 @@ func (g *GPSr) Run(ctx context.Context) error {
 		return fmt.Errorf("while creating root destination dir %v: %w", g.config.DataDir, err)
 	}
 
-	subCtx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	go g.listenPosChan(subCtx)
+	go g.listenPosChan(ctx)
 
 	return g.recording(ctx)
 }
@@ -199,18 +199,19 @@ func (g *GPSr) recordWithDuration(ctx context.Context, port io.ReadCloser, timeo
 	}()
 
 	// detect that we're actually getting a read, in case we picked up an
-	// irreleveant serial device, instead of the GPS one.
+	// irrelevant serial device, instead of the GPS one.
 	var canRead chan bool = make(chan bool)
 	go func() {
 		defer close(canRead)
 		select {
+		case <-ctx.Done():
+			return
 		case canRead <- true:
 		case <-time.After(30 * time.Second):
 			logger.Printf("no data from capture device %s. Is it actually a GPS device?", g.config.CaptureDevice)
 		}
 	}()
 
-	//	scanner := bufio.NewScanner(*port)
 	scanner := bufio.NewScanner(port)
 	for scanner.Scan() {
 		<-canRead
@@ -219,7 +220,7 @@ func (g *GPSr) recordWithDuration(ctx context.Context, port io.ReadCloser, timeo
 			if g.config.Verbose {
 				logger.Printf("recording interrupted")
 			}
-			return errors.New("interrupted")
+			return nil
 		case <-tm.C:
 			if g.config.Verbose {
 				logger.Printf("recording part reached maximum size")
