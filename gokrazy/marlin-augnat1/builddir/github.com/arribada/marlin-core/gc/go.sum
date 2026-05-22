@@ -6,6 +6,8 @@ github.com/Azure/azure-sdk-for-go/sdk/storage/azfile v1.5.1 h1:iXgRWOnlPG3AZwBYI
 github.com/Azure/azure-sdk-for-go/sdk/storage/azfile v1.5.1/go.mod h1:WtRlkDNMdVDrsTyLXNHkVrzkvfbdZXgoCu4PZbq9rgg=
 github.com/adrianmo/go-nmea v1.10.0 h1:L1aYaebZ4cXFCoXNSeDeQa0tApvSKvIbqMsK+iaRiCo=
 github.com/adrianmo/go-nmea v1.10.0/go.mod h1:u8bPnpKt/D/5rll/5l9f6iDfeq5WZW0+/SXdkwix6Tg=
+github.com/mpl/basicauth v0.0.0-20250721104714-3b2305e49960 h1:ZTTxh6jhwXvLLzaA3F8ejQyKfQmZfCTpGyUzFiNNutg=
+github.com/mpl/basicauth v0.0.0-20250721104714-3b2305e49960/go.mod h1:ZgiEBOLO+5VVkELSo4ngaoULBUv4ikK5vNPHwen2kjA=
 golang.org/x/net v0.38.0 h1:vRMAPTMaeGqVhG5QyLJHqNDwecKTomGeqbnfZyKlBI8=
 golang.org/x/net v0.38.0/go.mod h1:ivrbrMbzFq5J41QOQh0siUuly180yBYtLp+CKbEaFx8=
 golang.org/x/sys v0.34.0 h1:H5Y5sJ2L2JRdyv7ROF1he/lPdvFsd0mJHFw2ThKHxLA=

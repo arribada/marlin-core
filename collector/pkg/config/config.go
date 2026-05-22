@@ -14,6 +14,8 @@ import (
 	"github.com/arribada/marlin-core/collector/pkg/lpm"
 	"github.com/arribada/marlin-core/collector/pkg/videor/rtsp"
 	"github.com/arribada/marlin-core/collector/pkg/watcher"
+
+	"github.com/arribada/marlin-common/pkg/utils"
 )
 
 var (
@@ -267,9 +269,20 @@ func Parse() (*Config, error) {
 		cfg.Sat = *sat
 	}
 
+	setDashLogURL(cfg)
+
 	injectVideoAlwaysOn(cfg)
 
 	return cfg, nil
+}
+
+func setDashLogURL(config *Config) {
+	if flagReportURL == "" {
+		return
+	}
+
+	// TODO: gross, but works for now.
+	utils.DashLogURL = strings.TrimSuffix(flagReportURL, "?report=last") + "/logs/"
 }
 
 func injectVideoAlwaysOn(config *Config) {

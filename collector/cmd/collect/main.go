@@ -35,19 +35,19 @@ var theChans types.Chans
 func main() {
 	cfg, err := config.Parse()
 	if err != nil {
-		logger.Fatalf("while loading configuration: %v", err)
+		logger.Printf("while loading configuration: %v", err)
 	}
-	logger.Printf("configuration loaded:\n%+v", cfg)
+	utils.LogAndDash(logger, fmt.Sprintf("configuration loaded:\n%+v", cfg))
 
 	if cfg.Captain != "" {
 		if err := utils.WaitForDrive(cfg.Captain, 5*time.Minute); err != nil {
-			logger.Fatalf("while waiting for captain: %v", err)
+			utils.LogAndDash(logger, fmt.Sprintf("while waiting for captain: %v", err))
 		}
 	}
 
 	go func() {
 		if err := getReport(cfg.ReportURL); err != nil {
-			log.Printf("getReport error: %v", err)
+			utils.LogAndDash(logger, fmt.Sprintf("getReport error: %v", err))
 		}
 	}()
 
@@ -55,7 +55,7 @@ func main() {
 	startServices(context.Background(), &wg, cfg)
 
 	wg.Wait()
-	logger.Printf("terminated")
+	utils.LogAndDash(logger, fmt.Sprintf("terminated"))
 }
 
 // all the services are independent from each other, and each run
@@ -69,7 +69,7 @@ func startServices(ctx context.Context, wg *sync.WaitGroup, cfg *config.Config) 
 	go func() {
 		defer func() {
 			wg.Done()
-			logger.Printf("Routine terminated: signal handler")
+			utils.LogAndDash(logger, fmt.Sprintf("Routine terminated: signal handler"))
 		}()
 		runSignalHandler(cancel)
 	}()
@@ -78,7 +78,7 @@ func startServices(ctx context.Context, wg *sync.WaitGroup, cfg *config.Config) 
 	go func() {
 		defer func() {
 			wg.Done()
-			logger.Printf("Routine terminated: config server")
+			utils.LogAndDash(logger, fmt.Sprintf("Routine terminated: config server"))
 		}()
 		runConfigserver(subCtx, cfg)
 	}()
@@ -87,7 +87,7 @@ func startServices(ctx context.Context, wg *sync.WaitGroup, cfg *config.Config) 
 	go func() {
 		defer func() {
 			wg.Done()
-			logger.Printf("Routine terminated: LPM")
+			utils.LogAndDash(logger, fmt.Sprintf("Routine terminated: LPM"))
 		}()
 		runLPM(subCtx, cfg.Sat)
 	}()
@@ -96,7 +96,7 @@ func startServices(ctx context.Context, wg *sync.WaitGroup, cfg *config.Config) 
 	go func() {
 		defer func() {
 			wg.Done()
-			logger.Printf("Routine terminated: GPS")
+			utils.LogAndDash(logger, fmt.Sprintf("Routine terminated: GPS"))
 		}()
 		runGPS(subCtx, cfg.GPSr)
 	}()
@@ -105,7 +105,7 @@ func startServices(ctx context.Context, wg *sync.WaitGroup, cfg *config.Config) 
 	go func() {
 		defer func() {
 			wg.Done()
-			logger.Printf("Routine terminated: video")
+			utils.LogAndDash(logger, fmt.Sprintf("Routine terminated: video"))
 		}()
 		runVideo(subCtx, cfg.VideorRTSP)
 	}()
@@ -114,7 +114,7 @@ func startServices(ctx context.Context, wg *sync.WaitGroup, cfg *config.Config) 
 	go func() {
 		defer func() {
 			wg.Done()
-			logger.Printf("Routine terminated: data watcher")
+			utils.LogAndDash(logger, fmt.Sprintf("Routine terminated: data watcher"))
 		}()
 		runDataWatcher(subCtx, cfg.DataWatcher)
 	}()
@@ -123,7 +123,7 @@ func startServices(ctx context.Context, wg *sync.WaitGroup, cfg *config.Config) 
 	go func() {
 		defer func() {
 			wg.Done()
-			logger.Printf("Routine terminated: controller handler")
+			utils.LogAndDash(logger, fmt.Sprintf("Routine terminated: controller handler"))
 		}()
 		runController(subCtx, cfg.Controller)
 	}()
@@ -139,23 +139,23 @@ func retry(ctx context.Context, serviceName string, do func() error) {
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Printf("retry loop for %v interrupted by context", serviceName)
+			utils.LogAndDash(logger, fmt.Sprintf("retry loop for %v interrupted by context", serviceName))
 			return
 		default:
 		}
 		err := do()
 		if err == noRetry {
-			logger.Printf("terminating retries for service: %v", serviceName)
+			utils.LogAndDash(logger, fmt.Sprintf("terminating retries for service: %v", serviceName))
 			return
 		}
 		if err == nil {
 			// reset the pause on successful run
 			pause = time.Second
 		}
-		logger.Printf("retrying %v in %fs", serviceName, pause.Seconds())
+		utils.LogAndDash(logger, fmt.Sprintf("retrying %v in %fs", serviceName, pause.Seconds()))
 		select {
 		case <-ctx.Done():
-			logger.Printf("retry loop for %v interrupted by context", serviceName)
+			utils.LogAndDash(logger, fmt.Sprintf("retry loop for %v interrupted by context", serviceName))
 			return
 		case <-time.After(pause):
 		}
@@ -171,7 +171,7 @@ func runSignalHandler(cancel context.CancelFunc) {
 	signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 	defer signal.Stop(c)
 	sig := <-c
-	logger.Printf("Interrupted by signal: %v", sig)
+	utils.LogAndDash(logger, fmt.Sprintf("Interrupted by signal: %v", sig))
 	cancel()
 }
 
@@ -192,7 +192,7 @@ func runConfigserver(ctx context.Context, cfg *config.Config) {
 
 	logger.Printf("Starting web server on %v", srv.Addr)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		logger.Printf("config server error: %v", err)
+		utils.LogAndDash(logger, fmt.Sprintf("config server error: %v", err))
 		return
 	}
 	logger.Printf("Config server: waiting for idle connections")
@@ -206,7 +206,7 @@ func runLPM(ctx context.Context, cfg lpm.Config) {
 	}
 	retry(ctx, "Sat comms", func() error {
 		if err := lpm.Run(cfg, ctx); err != nil {
-			logger.Printf("LPM error: %v", err)
+			utils.LogAndDash(logger, fmt.Sprintf("LPM error: %v", err))
 			return err
 		}
 		return nil
@@ -221,11 +221,11 @@ func runGPS(ctx context.Context, cfg gpsr.Config) {
 	retry(ctx, "GPS recorder", func() error {
 		gps, err := gpsr.New(cfg, theChans.Position)
 		if err != nil {
-			logger.Printf("while initializing GPS recorder: %v", err)
+			utils.LogAndDash(logger, fmt.Sprintf("while initializing GPS recorder: %v", err))
 			return err
 		}
 		if err := gps.Run(ctx); err != nil {
-			logger.Printf("gps recorder error: %v", err)
+			utils.LogAndDash(logger, fmt.Sprintf("gps recorder error: %v", err))
 			return err
 		}
 		return nil
@@ -240,13 +240,13 @@ func runVideo(ctx context.Context, cfg rtsp.Config) {
 	retry(ctx, "Video recorder", func() error {
 		vid, err := rtsp.New(cfg, theChans.VideoCtrl)
 		if err != nil {
-			logger.Printf("while initializing Video recorder: %v", err)
+			utils.LogAndDash(logger, fmt.Sprintf("while initializing Video recorder: %v", err))
 			return err
 		}
 
 		err = vid.Run(ctx)
 		if err != nil {
-			logger.Printf("video recorder error: %v", err)
+			utils.LogAndDash(logger, fmt.Sprintf("video recorder error: %v", err))
 		}
 		if !vid.Forever {
 			return noRetry
@@ -264,12 +264,12 @@ func runDataWatcher(ctx context.Context, cfg watcher.Config) {
 	retry(ctx, "Data Watcher", func() error {
 		dw, err := watcher.New(cfg, &theChans)
 		if err != nil {
-			logger.Printf("while initializing data watcher: %v", err)
+			utils.LogAndDash(logger, fmt.Sprintf("while initializing data watcher: %v", err))
 			return err
 		}
 
 		if err := dw.Run(ctx); err != nil {
-			logger.Printf("data watcher error: %v", err)
+			utils.LogAndDash(logger, fmt.Sprintf("data watcher error: %v", err))
 			return err
 		}
 		return nil
@@ -283,12 +283,12 @@ func runController(ctx context.Context, cfg controller.Config) {
 	retry(ctx, "Controller Handler", func() error {
 		ctrl, err := controller.New(cfg, &theChans)
 		if err != nil {
-			logger.Printf("while initializing the start/stop controller: %v", err)
+			utils.LogAndDash(logger, fmt.Sprintf("while initializing the start/stop controller: %v", err))
 			return err
 		}
 
 		if err := ctrl.Run(ctx); err != nil {
-			logger.Printf("controller handler error: %v", err)
+			utils.LogAndDash(logger, fmt.Sprintf("controller handler error: %v", err))
 			return err
 		}
 		return nil

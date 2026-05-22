@@ -12,6 +12,7 @@ require (
 require (
 	github.com/adrianmo/go-nmea v1.10.0 // indirect
 	github.com/go-audio/riff v1.0.0 // indirect
+	github.com/mpl/basicauth v0.0.0-20250721104714-3b2305e49960 // indirect
 )
 
 replace (

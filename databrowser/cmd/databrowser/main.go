@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/arribada/marlin-common/pkg/utils"
@@ -39,12 +40,14 @@ func init() {
 }
 
 var (
-	up *basicauth.UserPass
+	up       *basicauth.UserPass
+	alertsUp *basicauth.UserPass
 )
 
 const (
 	dataPrefix    = "/data/"
 	rawdataPrefix = "/rawdata/"
+	logsPrefix    = "/logs/"
 )
 
 func initStuff() {
@@ -74,6 +77,9 @@ func initStuff() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// TODO: different userpass?
+	alertsUp = up
 }
 
 func main() {
@@ -339,9 +345,75 @@ func Server() {
 		H:  fileServer{},
 	}
 
+	lh := basicauth.UserPassHandler{
+		UP: alertsUp,
+		H:  &logsHandler{},
+	}
+
 	http.Handle(dataPrefix, &dataHandler)
 	http.Handle(rawdataPrefix, &rawHandler)
+	http.Handle(logsPrefix, &lh)
 	http.Handle("/", &srcHandler)
 
 	log.Fatal(http.ListenAndServe(flagHost, nil))
+}
+
+var (
+	alertsSize = 100
+)
+
+type logsHandler struct {
+	mu sync.RWMutex
+	// unbounded in theory, but we're capping it in code with alertsSize
+	logs []string
+	idx  int
+}
+
+func (lh *logsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		lh.HandlePost(w, r)
+		return
+	}
+	if r.Method == http.MethodGet {
+		lh.HandleGet(w, r)
+		return
+	}
+
+	http.Error(w, "not allowed", http.StatusMethodNotAllowed)
+	return
+}
+
+func (lh *logsHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
+	v := r.FormValue("v")
+	if v == "" {
+		http.Error(w, "wrong parameter", http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(200)
+
+	lh.mu.Lock()
+	defer lh.mu.Unlock()
+	if len(lh.logs) < alertsSize {
+		lh.logs = append(lh.logs, v)
+		return
+	}
+	lh.logs = append(lh.logs[1:], v)
+	// spew.Dump(lh.logs)
+}
+
+func (lh *logsHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
+	lh.mu.RLock()
+	defer lh.mu.RUnlock()
+	var data []byte
+	var err error
+	if len(lh.logs) == 0 {
+		data, err = json.Marshal([]string{})
+	} else {
+		data, err = json.Marshal(lh.logs)
+	}
+	if err != nil {
+		http.Error(w, "json encoding error", 500)
+		return
+	}
+	w.Write(data)
 }

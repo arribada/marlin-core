@@ -9,10 +9,8 @@ require (
 	github.com/bluenviron/gortsplib/v5 v5.2.2
 	github.com/bluenviron/mediacommon/v2 v2.6.0
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/go-kit/kit v0.10.0
 	github.com/mpl/basicauth v0.0.0-20250721104714-3b2305e49960
 	github.com/pion/rtp v1.10.0
-	github.com/pkg/errors v0.9.1
 	go.bug.st/serial v1.6.2
 	google.golang.org/protobuf v1.36.11
 	tailscale.com v1.96.5
@@ -95,7 +93,6 @@ require (
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.13.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.10.0 // indirect
-	github.com/go-logfmt/logfmt v0.5.0 // indirect
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/sys v0.40.0
 	golang.org/x/text v0.32.0 // indirect

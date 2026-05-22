@@ -4,12 +4,65 @@
 package utils
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"net/rpc"
+	"net/url"
+	"strings"
 	"time"
+
+	"github.com/mpl/basicauth"
 )
+
+var DashLogURL = "http://localhost:7144/logs/"
+
+func LogAndDash(lg *log.Logger, s string) {
+	var buf bytes.Buffer
+	// Creating a new buffer on the fly, because we want the same
+	// timestamp, prefix, etc on the local log line, and on the one we
+	// post to the dashboard.
+	log.New(io.MultiWriter(lg.Writer(), &buf), lg.Prefix(), lg.Flags()).Printf(s)
+	LogToDash(buf.String())
+}
+
+func LogToDash(s string) {
+	go func() {
+		if err := logToDash(s); err != nil {
+			log.Printf("while logging to data browser: %v", err)
+		}
+	}()
+}
+
+func logToDash(s string) error {
+	if DashLogURL == "" {
+		// TODO: log about it? ironic isn't it?
+		return nil
+	}
+	req, err := http.NewRequest("POST", DashLogURL,
+		strings.NewReader(url.Values{"v": []string{s}}.Encode()))
+	if err != nil {
+		return fmt.Errorf("while creating request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	up, err := basicauth.NewUserPass("")
+	if err != nil {
+		return err
+	}
+	req.SetBasicAuth(up.U, up.P)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("while posting log: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+	return nil
+}
 
 func WaitForDrive(addr string, d time.Duration) error {
 	log.Printf("dialing drive prepper at %v", addr)
