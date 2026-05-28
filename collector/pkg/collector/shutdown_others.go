@@ -3,6 +3,6 @@
 
 //go:build !linux || !arm64
 
-package main
+package collector
 
 func shutdown() {}

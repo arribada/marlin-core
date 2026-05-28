@@ -3,7 +3,7 @@
 
 //go:build linux && arm64
 
-package main
+package collector
 
 import "golang.org/x/sys/unix"
 
