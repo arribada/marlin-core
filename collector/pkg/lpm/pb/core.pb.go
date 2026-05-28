@@ -162,7 +162,7 @@ func (x LpmReply_Response) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use LpmReply_Response.Descriptor instead.
 func (LpmReply_Response) EnumDescriptor() ([]byte, []int) {
-	return file_proto_core_proto_rawDescGZIP(), []int{5, 0}
+	return file_proto_core_proto_rawDescGZIP(), []int{6, 0}
 }
 
 type SysInit struct {
@@ -575,17 +575,78 @@ func (*CoreMessage_Status) isCoreMessage_Message() {}
 
 func (*CoreMessage_Mode) isCoreMessage_Message() {}
 
+type BatteryStatus struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Set           bool                   `protobuf:"varint,1,opt,name=set,proto3" json:"set,omitempty"`
+	Voltage       float32                `protobuf:"fixed32,2,opt,name=voltage,proto3" json:"voltage,omitempty"`
+	Current       float32                `protobuf:"fixed32,3,opt,name=current,proto3" json:"current,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatteryStatus) Reset() {
+	*x = BatteryStatus{}
+	mi := &file_proto_core_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatteryStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatteryStatus) ProtoMessage() {}
+
+func (x *BatteryStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_core_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatteryStatus.ProtoReflect.Descriptor instead.
+func (*BatteryStatus) Descriptor() ([]byte, []int) {
+	return file_proto_core_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *BatteryStatus) GetSet() bool {
+	if x != nil {
+		return x.Set
+	}
+	return false
+}
+
+func (x *BatteryStatus) GetVoltage() float32 {
+	if x != nil {
+		return x.Voltage
+	}
+	return 0
+}
+
+func (x *BatteryStatus) GetCurrent() float32 {
+	if x != nil {
+		return x.Current
+	}
+	return 0
+}
+
 type LpmReply struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	MsgId         uint32                 `protobuf:"varint,1,opt,name=msg_id,json=msgId,proto3" json:"msg_id,omitempty"`
 	Response      LpmReply_Response      `protobuf:"varint,2,opt,name=response,proto3,enum=sat.LpmReply_Response" json:"response,omitempty"`
+	BatteryStatus *BatteryStatus         `protobuf:"bytes,3,opt,name=batteryStatus,proto3" json:"batteryStatus,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *LpmReply) Reset() {
 	*x = LpmReply{}
-	mi := &file_proto_core_proto_msgTypes[5]
+	mi := &file_proto_core_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -597,7 +658,7 @@ func (x *LpmReply) String() string {
 func (*LpmReply) ProtoMessage() {}
 
 func (x *LpmReply) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_core_proto_msgTypes[5]
+	mi := &file_proto_core_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -610,7 +671,7 @@ func (x *LpmReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LpmReply.ProtoReflect.Descriptor instead.
 func (*LpmReply) Descriptor() ([]byte, []int) {
-	return file_proto_core_proto_rawDescGZIP(), []int{5}
+	return file_proto_core_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *LpmReply) GetMsgId() uint32 {
@@ -625,6 +686,13 @@ func (x *LpmReply) GetResponse() LpmReply_Response {
 		return x.Response
 	}
 	return LpmReply_OK
+}
+
+func (x *LpmReply) GetBatteryStatus() *BatteryStatus {
+	if x != nil {
+		return x.BatteryStatus
+	}
+	return nil
 }
 
 var File_proto_core_proto protoreflect.FileDescriptor
@@ -675,10 +743,15 @@ const file_proto_core_proto_rawDesc = "" +
 	"\x04init\x18\x03 \x01(\v2\f.sat.SysInitH\x00R\x04init\x12)\n" +
 	"\x06status\x18\x04 \x01(\v2\x0f.sat.CoreStatusH\x00R\x06status\x12&\n" +
 	"\x04mode\x18\x05 \x01(\v2\x10.sat.HarbourModeH\x00R\x04modeB\t\n" +
-	"\amessage\"t\n" +
+	"\amessage\"U\n" +
+	"\rBatteryStatus\x12\x10\n" +
+	"\x03set\x18\x01 \x01(\bR\x03set\x12\x18\n" +
+	"\avoltage\x18\x02 \x01(\x02R\avoltage\x12\x18\n" +
+	"\acurrent\x18\x03 \x01(\x02R\acurrent\"\xae\x01\n" +
 	"\bLpmReply\x12\x15\n" +
 	"\x06msg_id\x18\x01 \x01(\rR\x05msgId\x122\n" +
-	"\bresponse\x18\x02 \x01(\x0e2\x16.sat.LpmReply.ResponseR\bresponse\"\x1d\n" +
+	"\bresponse\x18\x02 \x01(\x0e2\x16.sat.LpmReply.ResponseR\bresponse\x128\n" +
+	"\rbatteryStatus\x18\x03 \x01(\v2\x12.sat.BatteryStatusR\rbatteryStatus\"\x1d\n" +
 	"\bResponse\x12\x06\n" +
 	"\x02OK\x10\x00\x12\t\n" +
 	"\x05ERROR\x10\x01B\x06Z\x04./pbb\x06proto3"
@@ -696,7 +769,7 @@ func file_proto_core_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_core_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_proto_core_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_proto_core_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_proto_core_proto_goTypes = []any{
 	(CoreStatus_Status)(0),   // 0: sat.CoreStatus.Status
 	(HarbourMode_Command)(0), // 1: sat.HarbourMode.Command
@@ -706,7 +779,8 @@ var file_proto_core_proto_goTypes = []any{
 	(*CoreStatus)(nil),       // 5: sat.CoreStatus
 	(*HarbourMode)(nil),      // 6: sat.HarbourMode
 	(*CoreMessage)(nil),      // 7: sat.CoreMessage
-	(*LpmReply)(nil),         // 8: sat.LpmReply
+	(*BatteryStatus)(nil),    // 8: sat.BatteryStatus
+	(*LpmReply)(nil),         // 9: sat.LpmReply
 }
 var file_proto_core_proto_depIdxs = []int32{
 	0,  // 0: sat.CoreStatus.camera:type_name -> sat.CoreStatus.Status
@@ -723,11 +797,12 @@ var file_proto_core_proto_depIdxs = []int32{
 	5,  // 11: sat.CoreMessage.status:type_name -> sat.CoreStatus
 	6,  // 12: sat.CoreMessage.mode:type_name -> sat.HarbourMode
 	2,  // 13: sat.LpmReply.response:type_name -> sat.LpmReply.Response
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	8,  // 14: sat.LpmReply.batteryStatus:type_name -> sat.BatteryStatus
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_proto_core_proto_init() }
@@ -747,7 +822,7 @@ func file_proto_core_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_core_proto_rawDesc), len(file_proto_core_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   6,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

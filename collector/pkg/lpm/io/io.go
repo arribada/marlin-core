@@ -7,12 +7,15 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/arribada/marlin-common/pkg/sat"
+	"github.com/arribada/marlin-core/collector/pkg/lpm/battery"
 	"github.com/arribada/marlin-core/collector/pkg/lpm/pb"
 
 	"go.bug.st/serial"
@@ -30,18 +33,55 @@ var (
 
 	mu          sync.RWMutex
 	initialized bool
-	port        serial.Port
+
+	// TODO: these two could/should just be one serial.Port, but we're
+	// using a named pipe file in tests, which cannot be multiplexed. We
+	// probably can do better and avoid be affected here, but later.
+	portr io.ReadWriteCloser
+	portw io.ReadWriteCloser
 
 	idMu  sync.RWMutex
 	msgID uint32 = 1 // 0 is reserved for unmarshaling errors
 
 	rcvdMu sync.RWMutex
-	rcvd   map[uint32]pb.LpmReply_Response = make(map[uint32]pb.LpmReply_Response)
+	rcvd   map[uint32]*pb.LpmReply = make(map[uint32]*pb.LpmReply)
 
 	AlertErrC = make(chan error)
 )
 
-func OpenPort(device string) (serial.Port, error) {
+type namedPipe struct {
+	r *os.File
+	w *os.File
+}
+
+func (np namedPipe) Close() error {
+	err1 := np.r.Close()
+	err2 := np.w.Close()
+	if err1 != nil {
+		return err1
+	}
+	return err2
+}
+
+func OpenPort(device string) (io.Closer, error) {
+	// When using a named pipe, instead of a real device, in tests.
+	if !strings.HasPrefix(device, "/dev") {
+		pr, err := os.OpenFile(device+"r", os.O_RDWR, os.ModeNamedPipe)
+		if err != nil {
+			return nil, err
+		}
+		pw, err := os.OpenFile(device+"w", os.O_RDWR, os.ModeNamedPipe)
+		if err != nil {
+			return nil, err
+		}
+		portr = pw
+		portw = pr
+		return namedPipe{
+			r: pr,
+			w: pw,
+		}, nil
+	}
+
 	p, err := serial.Open(device,
 		&serial.Mode{
 			BaudRate: 115200,
@@ -49,7 +89,8 @@ func OpenPort(device string) (serial.Port, error) {
 	if err != nil {
 		return nil, err
 	}
-	port = p
+	portr = p
+	portw = p
 	return p, nil
 }
 
@@ -128,7 +169,7 @@ func send(data []byte, id uint32, initCheck bool) error {
 	if Verbose {
 		logger.Printf("sending message: %x", data)
 	}
-	if _, err := port.Write(data); err != nil {
+	if _, err := portw.Write(data); err != nil {
 		return fmt.Errorf("while sending message: %v", err)
 	}
 	if Verbose {
@@ -150,13 +191,28 @@ func send(data []byte, id uint32, initCheck bool) error {
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
-		if rply == pb.LpmReply_OK {
-			if Verbose {
-				logger.Printf("OK response to msg %d", id)
-			}
+		if rply.Response == pb.LpmReply_ERROR {
+			return fmt.Errorf("ERROR response to msg %d", id)
+		}
+
+		// rply.Response == pb.LpmReply_OK
+		if Verbose {
+			logger.Printf("OK response to msg %d", id)
+		}
+
+		// TODO: remove (unneeded) Set field from proto. Since BatteryStatus is a
+		// pointer field, it will be nil if it isn't touched on the LPM side.
+		if rply.BatteryStatus == nil || !rply.BatteryStatus.Set {
+			// do not update the battery voltage if LPM hasn't set it
 			break
 		}
-		return fmt.Errorf("ERROR response to msg %d", id)
+		battery.Mu.Lock()
+		battery.Voltage = float64(rply.BatteryStatus.Voltage)
+		battery.Current = float64(rply.BatteryStatus.Current)
+		battery.Mu.Unlock()
+
+		break
+
 	}
 	initialized = true
 	return nil
@@ -180,7 +236,7 @@ func GetReplies(ctx context.Context) {
 func GetReply() error {
 	// TODO: do not allocate everytime?
 	p := make([]byte, 1024)
-	n, err := port.Read(p)
+	n, err := portr.Read(p)
 	if err != nil {
 		return fmt.Errorf("while reading reply: %v", err)
 	}
@@ -198,9 +254,29 @@ func GetReply() error {
 	}
 
 	rcvdMu.Lock()
-	rcvd[reply.MsgId] = reply.Response
+	rcvd[reply.MsgId] = &reply
 	rcvdMu.Unlock()
 	return nil
+}
+
+func SendHarbourMode(hm *pb.HarbourMode) error {
+	idMu.Lock()
+	id := msgID
+	msg := &pb.CoreMessage{
+		MsgId: id,
+		Message: &pb.CoreMessage_Mode{
+			Mode: hm,
+		},
+	}
+	msgID++
+	idMu.Unlock()
+
+	out, err := proto.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("while encoding Harbour Mode message %d: %v", id, err)
+	}
+
+	return send(out, id, true)
 }
 
 func SendCoreStatus(status *pb.CoreStatus) error {

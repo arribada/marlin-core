@@ -132,14 +132,18 @@ func New(cfg Config, theChans *types.Chans) (*EventsWatcher, error) {
 	if cfg.VideoAlwaysOn {
 		ew.isVideoRecording = true
 	}
-	go ew.trackVideoRecState()
-	go ew.trackButtonPresses()
+
 	return ew, nil
 }
 
-func (ew *EventsWatcher) trackVideoRecState() {
+func (ew *EventsWatcher) trackVideoRecState(ctx context.Context) {
 	for {
-		isRecording := <-ew.chans.VideoState
+		var isRecording bool
+		select {
+		case <-ctx.Done():
+			return
+		case isRecording = <-ew.chans.VideoState:
+		}
 		if ew.config.VideoAlwaysOn {
 			// isVideoRecording already set to true in New.
 			continue
@@ -150,16 +154,23 @@ func (ew *EventsWatcher) trackVideoRecState() {
 	}
 }
 
+/*
 func (ew *EventsWatcher) videoRecState() bool {
 	ew.muVideoRec.RLock()
 	defer ew.muVideoRec.RUnlock()
 	return ew.isVideoRecording
 }
+*/
 
-func (ew *EventsWatcher) trackButtonPresses() {
+func (ew *EventsWatcher) trackButtonPresses(ctx context.Context) {
 	ew.lastButtonPress = time.Now().UTC()
 	for {
-		bp := <-ew.chans.ButtonPress
+		var bp bool
+		select {
+		case <-ctx.Done():
+			return
+		case bp = <-ew.chans.ButtonPress:
+		}
 		// we still want to be responsive for our controller http handler,
 		// so we make it all concurrent, to accept button presses as fast
 		// as possible.
@@ -312,6 +323,8 @@ func isButtonPress(name string) bool {
 func (sw *EventsWatcher) Run(ctx context.Context) error {
 	defer sw.watcher.Close()
 
+	go sw.trackVideoRecState(ctx)
+	go sw.trackButtonPresses(ctx)
 	go sw.up.loop(ctx)
 	go sw.du.loop(ctx)
 

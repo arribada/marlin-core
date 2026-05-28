@@ -54,9 +54,16 @@ message CoreMessage {
     }
 }
 
+message BatteryStatus {
+    bool set = 1;
+    float voltage = 2;
+    float current = 3;
+}
+
 message LpmReply {
     uint32 msg_id = 1;
     Response response = 2;
+    BatteryStatus batteryStatus = 3;
 
     enum Response {
         OK = 0;

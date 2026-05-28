@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/arribada/marlin-core/collector/pkg/gpsr"
+	"github.com/arribada/marlin-core/collector/pkg/lpm/battery"
 	lpmio "github.com/arribada/marlin-core/collector/pkg/lpm/io"
 	"github.com/arribada/marlin-core/collector/pkg/lpm/pb"
 	"github.com/arribada/marlin-core/collector/pkg/videor/rtsp"
@@ -64,7 +65,8 @@ type Config struct {
 }
 
 var (
-	statusUpdatePeriod = 30 * time.Second
+	statusUpdatePeriod  = 30 * time.Second
+	batteryUpdatePeriod = 30 * time.Second
 )
 
 // for passing around the cfg, and for caching some states
@@ -75,7 +77,7 @@ type systemState struct {
 	cellStatus bool
 }
 
-func Run(cfg Config, ctx context.Context) error {
+func Run(cfg Config, harbourMode bool, ctx context.Context) error {
 	if !cfg.Enabled {
 		return nil
 	}
@@ -119,21 +121,16 @@ func Run(cfg Config, ctx context.Context) error {
 
 	time.Sleep(time.Second)
 
-	ss := &systemState{
-		cfg: cfg,
-	}
 	statusErrC := make(chan error)
-	go func() {
-		err := ss.sendStatuses(ctx)
-		if err == nil {
-			return
-		}
-		select {
-		case statusErrC <- fmt.Errorf("while sending core status: %v", err):
-		case <-time.After(5 * time.Second):
-		}
-	}()
+	go sendStatuses(ctx, cfg, statusErrC)
 
+	onBatteryC := make(chan bool)
+	lowVoltageC := make(chan struct{})
+	go monitorBattery(ctx, harbourMode, onBatteryC, lowVoltageC)
+
+	// TODO: I suppose instead of returning we could have chans to
+	// communicate (battery stuff) between collector and lpm. But probably
+	// makes collector code more complicated, so good enough for now.
 	select {
 	case <-ctx.Done():
 		return nil
@@ -141,19 +138,96 @@ func Run(cfg Config, ctx context.Context) error {
 		return err
 	case err := <-lpmio.AlertErrC:
 		return err
+	case <-lowVoltageC:
+		return battery.LowVoltageErr
+	case v := <-onBatteryC:
+		if v {
+			return battery.OnBatteryErr
+		}
+		return battery.OnMainsErr
 	}
 }
 
-func (ss *systemState) sendStatuses(ctx context.Context) error {
+func sendHarbourMode(ctx context.Context, enter bool) error {
+	if enter {
+		return lpmio.SendHarbourMode(&pb.HarbourMode{
+			Cmd: pb.HarbourMode_ENTER,
+		})
+	}
+	return lpmio.SendHarbourMode(&pb.HarbourMode{
+		Cmd: pb.HarbourMode_EXIT,
+	})
+}
+
+func monitorBattery(ctx context.Context, harbourMode bool, onBatteryC chan bool, lowVoltageC chan struct{}) {
 	for {
+		if battery.IsLowVoltage() {
+			select {
+			case lowVoltageC <- struct{}{}:
+			case <-time.After(5 * time.Second):
+				logger.Printf("time out sending low voltage status")
+			}
+			return
+		}
+
+		onBattery := battery.IsDischarging()
+		if !harbourMode && onBattery {
+			if err := sendHarbourMode(ctx, true); err != nil {
+				logger.Printf("while sending harbour mode: %v", err)
+			}
+			select {
+			case onBatteryC <- true:
+			case <-time.After(5 * time.Second):
+				logger.Printf("time out sending on battery status")
+			}
+			return
+		}
+		if harbourMode && !onBattery {
+			if err := sendHarbourMode(ctx, false); err != nil {
+				logger.Printf("while sending harbour mode: %v", err)
+			}
+			select {
+			case onBatteryC <- false:
+			case <-time.After(5 * time.Second):
+				logger.Printf("time out sending on battery status")
+			}
+			return
+		}
+
 		select {
 		case <-ctx.Done():
-			return nil
-		case <-time.After(statusUpdatePeriod):
+			return
+		// TODO: subscribe to battery state change instead of probing? Not
+		// important in real conditions. Would just make tests easier, so not
+		// really a good reason.
+		case <-time.After(batteryUpdatePeriod):
 		}
-		if err := ss.sendCoreStatus(ctx); err != nil {
-			return err
+	}
+}
+
+func sendStatuses(ctx context.Context, cfg Config, statusErrC chan error) {
+	ss := &systemState{
+		cfg: cfg,
+	}
+	err := func() error {
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(statusUpdatePeriod):
+			}
+			if err := ss.sendCoreStatus(ctx); err != nil {
+				return err
+			}
 		}
+	}()
+	if err == nil {
+		return
+	}
+	select {
+	case statusErrC <- fmt.Errorf("while sending core status: %v", err):
+	case <-time.After(5 * time.Second):
+		logger.Printf("time out sending core status error")
 	}
 }
 
@@ -242,6 +316,7 @@ func controllerStatus(cfg Config, ctx context.Context) pb.CoreStatus_Status {
 	_, err = p.Send(nctx, dest, nil)
 	cancel()
 	if err != nil {
+		logger.Printf("while pinging controller: %v", err)
 		return pb.CoreStatus_OFFLINE
 	}
 
