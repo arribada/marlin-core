@@ -22,9 +22,36 @@
 		"github.com/arribada/marlin-core/gc/cmd/gc",
 		"github.com/arribada/marlin-core/gengps/cmd/gengps",
 		"github.com/arribada/marlin-core/captain/cmd/captain",
-		"github.com/arribada/marlin-core/gateway/cmd/gateway"
+		"github.com/arribada/marlin-core/gateway/cmd/gateway",
+		"github.com/arribada/marlin-core/ap/cmd/ap",
+		"github.com/rtr7/router7/cmd/dhcp4d"
 	],
 	"PackageConfig": {
+		"github.com/arribada/marlin-core/ap/cmd/ap": {
+			"ExtraFilePaths": {
+				"/usr/local/bin/hostapd": "/home/marlin/src/github.com/arribada/marlin-core/ap/freeze/hostapd",
+				"/usr/local/lib/hostapd/ld-linux-aarch64.so.1": "/home/marlin/src/github.com/arribada/marlin-core/ap/freeze/ld-linux-aarch64.so.1",
+				"/usr/local/lib/hostapd/libc.so.6": "/home/marlin/src/github.com/arribada/marlin-core/ap/freeze/libc.so.6",
+				"/usr/local/lib/hostapd/libcrypto.so.3": "/home/marlin/src/github.com/arribada/marlin-core/ap/freeze/libcrypto.so.3",
+				"/usr/local/lib/hostapd/libm.so.6": "/home/marlin/src/github.com/arribada/marlin-core/ap/freeze/libm.so.6",
+				"/usr/local/lib/hostapd/libnl-3.so.200": "/home/marlin/src/github.com/arribada/marlin-core/ap/freeze/libnl-3.so.200",
+				"/usr/local/lib/hostapd/libnl-genl-3.so.200": "/home/marlin/src/github.com/arribada/marlin-core/ap/freeze/libnl-genl-3.so.200",
+				"/usr/local/lib/hostapd/libnl-route-3.so.200": "/home/marlin/src/github.com/arribada/marlin-core/ap/freeze/libnl-route-3.so.200",
+				"/usr/local/lib/hostapd/libssl.so.3": "/home/marlin/src/github.com/arribada/marlin-core/ap/freeze/libssl.so.3",
+				"/usr/local/lib/hostapd/libz.so.1": "/home/marlin/src/github.com/arribada/marlin-core/ap/freeze/libz.so.1",
+				"/usr/local/lib/hostapd/libzstd.so.1": "/home/marlin/src/github.com/arribada/marlin-core/ap/freeze/libzstd.so.1",
+				"/etc/hostapd.conf": "/home/marlin/src/github.com/arribada/marlin-core/ap/hostapd.conf"
+			},
+			"CommandLineFlags": [
+				"-host=:2848"
+			]
+		},
+		"github.com/rtr7/router7/cmd/dhcp4d": {
+			"DontStart": true,
+			"CommandLineFlags": [
+				"-interface=wlan0"
+			]
+		},
 		"github.com/gokrazy/gokrazy/cmd/dhcp": {
 			"CommandLineFlags": [
 				"-extra_route_priority=10",
@@ -32,10 +59,7 @@
 			]
 		},
 		"github.com/gokrazy/wifi": {
-			"DontStart": true,
-			"ExtraFilePaths": {
-				"/etc/wifi.json": "wifi.json"
-			}
+			"ExtraFilePaths": {}
 		},
 		"github.com/arribada/marlin-core/gc/cmd/gc": {
 			"DontStart": true,
@@ -56,8 +80,7 @@
 		},
 		"github.com/arribada/marlin-core/gateway/cmd/gateway": {
 			"CommandLineFlags": [
-				"-lan=eth0",
-				"-wan=wwan0"
+				"-lan=eth0"
 			]
 		},
 		"github.com/arribada/marlin-core/collector/integration": {

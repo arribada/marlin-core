@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,7 +19,20 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const wifiStationConf = "/perm/wifi.json"
+
 func checkConf() error {
+	// AP mode is mutually exclusive with station mode, for now.
+	// so we stop if we detect a wifi station configuration file.
+	_, err := os.Stat(wifiStationConf)
+	if err == nil {
+		log.Printf("Wifi station config file detected (%s), stopping access point process", wifiStationConf)
+		gokrazy.DontStartOnBoot()
+	}
+	if !os.IsNotExist(err) {
+		return err
+	}
+
 	if _, err := os.Stat("/perm/hostapd.conf"); err != nil {
 		if !os.IsNotExist(err) {
 			return err
@@ -34,6 +48,7 @@ func checkConf() error {
 	} else {
 		hostapdConf = "/perm/hostapd.conf"
 	}
+
 	return nil
 }
 

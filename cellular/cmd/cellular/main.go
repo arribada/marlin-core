@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gokrazy/gokrazy"
 	"tailscale.com/net/ping"
 	"tailscale.com/types/logger"
 )
@@ -55,10 +56,24 @@ var (
 	status   bool
 )
 
-func checkFlags() {
+const wifiStationConf = "/perm/wifi.json"
+
+func checkConf() {
 	if flagDummy {
 		return
 	}
+
+	// do not enable cellular if we have a wifi station
+	// configuration file.
+	_, err := os.Stat(wifiStationConf)
+	if err == nil {
+		log.Printf("wifi station config file (%s) found, disabling cellular", wifiStationConf)
+		gokrazy.DontStartOnBoot()
+	}
+	if !os.IsNotExist(err) {
+		log.Fatal(err)
+	}
+
 	if flagPin == "" {
 		log.Fatal("-pin for SIM card not provided")
 	}
@@ -67,7 +82,7 @@ func checkFlags() {
 func main() {
 	flag.Parse()
 
-	checkFlags()
+	checkConf()
 
 	http.HandleFunc("/status", statusHandler)
 	go func() {

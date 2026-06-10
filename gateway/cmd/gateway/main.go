@@ -39,8 +39,33 @@ var (
 
 func init() {
 	flag.StringVar(&flagLan, "lan", "eth0", "interface on the subnet side")
-	// TODO: change the default to cell interface name (wwan0 probably)
-	flag.StringVar(&flagWan, "wan", "wlan0", "interface on the internet side")
+	flag.StringVar(&flagWan, "wan", "", "interface on the internet side. Automatically chosen if empty.")
+}
+
+const (
+	wwan0           = "wwan0"
+	wlan0           = "wlan0"
+	wifiStationConf = "/perm/wifi.json"
+)
+
+func checkConf() {
+	if flagLan == "" {
+		log.Fatal("empty lan interface")
+	}
+	if flagWan == "" {
+		log.Printf("no wan interface specified. Will use wlan0 if wifi is enabled, wwan0 otherwise.")
+		_, err := os.Stat(wifiStationConf)
+		if err == nil {
+			flagWan = wlan0
+			log.Printf("wifi station config file (%s) found, using wifi (%s) as wan interface", wifiStationConf, flagWan)
+			return
+		}
+		if !os.IsNotExist(err) {
+			log.Fatal(err)
+		}
+		flagWan = wwan0
+		log.Printf("wifi station config file (%s) not found, using cellular (%s) as wan interface", wifiStationConf, flagWan)
+	}
 }
 
 func main() {
@@ -48,12 +73,8 @@ func main() {
 	// TODO: do we need/want to wait for TS to have added their rules first?
 
 	flag.Parse()
-	if flagLan == "" {
-		log.Fatal("empty lan interface")
-	}
-	if flagWan == "" {
-		log.Fatal("empty wan interface")
-	}
+
+	checkConf()
 
 	if err := enableForwarding(); err != nil {
 		log.Fatalf("while enabling forwarding: %v", err)
