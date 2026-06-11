@@ -6,6 +6,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -29,11 +30,12 @@ import (
 )
 
 var (
-	flagHost   string
-	flagDevice string
-	flagLabel  string
-	flagMount  string
-	flagForce  bool
+	flagHost        string
+	flagDevice      string
+	flagLabel       string
+	flagMount       string
+	flagForce       bool
+	flagAllowFormat bool
 )
 
 func init() {
@@ -41,7 +43,8 @@ func init() {
 	flag.StringVar(&flagDevice, "device", "", "the path to the device that is going to be formatted. ex: /dev/sda")
 	flag.StringVar(&flagLabel, "label", "MARLIN_DATA", "the volume label set on the filesystem at the very last stage of the device preparation. Serves as a sentinel for subsequent runs.")
 	flag.StringVar(&flagMount, "mnt", "", "the mount point for the drive. empty means no mounting.")
-	flag.BoolVar(&flagForce, "force", false, "Skip all checks and force prep the drive.")
+	flag.BoolVar(&flagForce, "force", false, "Skip all checks and force prep the drive (also overrides -format).")
+	flag.BoolVar(&flagAllowFormat, "format", false, "Whether we are allowed to actually format the drive if needed.")
 }
 
 const (
@@ -82,6 +85,7 @@ func main() {
 	checkFlags()
 
 	if flagForce {
+		flagAllowFormat = true
 		log.Printf("Force prepping the drive now.")
 		if err := prepSSD(flagLabel, flagDevice); err != nil {
 			log.Fatalf("while preparing drive: %v", err)
@@ -279,6 +283,7 @@ func fsck(part string) ([]byte, error) {
 	return out, err
 }
 
+// checkFS runs fsck, and then returns whether the filesystem has any files.
 func checkFS(part string) (bool, error) {
 	var out []byte
 	var err error
@@ -293,7 +298,7 @@ func checkFS(part string) (bool, error) {
 		}
 	}
 	sc := bufio.NewScanner(bytes.NewReader(out))
-	nbFiles := 0
+	nbFiles := -1
 	for sc.Scan() {
 		l := sc.Text()
 		if !strings.Contains(l, "files,") || !strings.HasSuffix(l, "clusters") {
@@ -303,17 +308,21 @@ func checkFS(part string) (bool, error) {
 		if len(parts) != 5 {
 			return false, fmt.Errorf("unexpected number of parts: %d", len(parts))
 		}
-		nbFiles, err = strconv.Atoi(parts[1])
+		nb, err := strconv.Atoi(parts[1])
 		if err != nil {
-			return false, nil
+			return false, fmt.Errorf("could not parse %s as a number of files", parts[1])
 		}
+		nbFiles = nb
 		break
 	}
-	// technically should be > 0 , but turns out even when fs seems empty, fsck says 1 file.
+	if nbFiles < 0 {
+		return false, errors.New("could not figure out whether the filesystem has any files")
+	}
+	// technically the test should be > 0 , but turns out even when fs seems empty,
+	// fsck says 1 file.
 	// And that is because of the volume label itself I think.
 	if nbFiles > 1 {
-		// hasFiles more important than scanning error at this point
-		return true, nil
+		return true, sc.Err()
 	}
 	return false, sc.Err()
 }
@@ -330,8 +339,7 @@ func checkAndPrep(device, label string) error {
 	}
 
 	if hasFiles {
-		// TODO: make this fatal?
-		return fmt.Errorf("Volume label hints that we should partition/format, but device actually already has files, so refusing to proceed out of caution")
+		return fmt.Errorf("Volume label hints that we should partition/format, but device actually already has files, so refusing to proceed")
 	}
 
 	log.Printf("SSD needs partitionning and/or formatting, proceeding.")
@@ -354,8 +362,12 @@ func check(device, label string) (hasFiles, needsPrep bool, err error) {
 	}
 
 	// TODO: is it bad to assume we're always going to use the first partition?
+	// TODO: replace this (and all the diskfs stuff anyway with more reliable dosfs stuff)
 	fs, err := theDisk.GetFilesystem(1)
 	if err != nil {
+		if strings.HasPrefix(err.Error(), "unknown filesystem") {
+			return false, false, err
+		}
 		// TODO: could it fail for other reasons?
 		log.Printf("no existing filesystem found on device: %v", err)
 		return false, true, nil
@@ -404,6 +416,9 @@ const (
 )
 
 func prepSSD(label, device string) error {
+	if !flagAllowFormat {
+		return errors.New("aborting prepping the drive since it has not been explictly allowed")
+	}
 	theBackend, err := file.OpenFromPath(device, false)
 	if err != nil {
 		return err
