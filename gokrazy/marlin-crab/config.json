@@ -122,18 +122,20 @@
 			"CommandLineFlags": [
 				"-host=:7140",
 				"-captain=localhost:7143",
+				"-gps=true",
 				"-video=true",
 				"-video_split=5m",
-				"-gps=true",
 				"-sat=true",
 				"-sat_id=291885",
 				"-sat_address=005A9EBD",
-				"-sat_seckey=69B26EE789BD10109328437567F68469"
+				"-sat_seckey=69B26EE789BD10109328437567F68469",
+				"-ts_status_url=GUS_SERVER",
+				"-controller_status_url=TRANSCRIBE_SOURCE"
 			]
 		},
 		"github.com/arribada/marlin-core/cellular/cmd/cellular": {
 			"ExtraFilePaths": {
-				"/etc/mbim-network.conf": "/home/marlin/src/github.com/arribada/marlin-core/cellular/mbim-network.conf.ee",
+				"/etc/mbim-network.conf": "/home/marlin/src/github.com/arribada/marlin-core/cellular/mbim-network.conf.free",
 				"/usr/local/bin/mbim-network": "/home/marlin/src/github.com/arribada/marlin-core/cellular/mbim-network",
 				"/usr/local/bin/mbimcli": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/mbimcli",
 				"/usr/local/lib/mbim/ld-linux-aarch64.so.1": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/ld-linux-aarch64.so.1",
@@ -152,10 +154,11 @@
 				"/usr/local/lib/mbim/libz.so.1": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/libz.so.1"
 			},
 			"CommandLineFlags": [
-				"-pin=1111",
+				"-pin=1234",
 				"-priority=-2",
 				"-debug=false",
-				"-v=true"
+				"-v=true",
+				"-host=:3399"
 			]
 		},
 		"github.com/arribada/marlin-core/databrowser/cmd/databrowser": {
