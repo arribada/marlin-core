@@ -20,18 +20,16 @@ import (
 
 var DashLogURL = "http://localhost:7144/logs/"
 
+// LogAndDash writes s both to lg (synchronously), and to the local
+// dashboard (asynchronously).
 func LogAndDash(lg *log.Logger, s string) {
 	var buf bytes.Buffer
-	// Creating a new buffer on the fly, because we want the same
+	// Creating a new logger on the fly, because we want the same
 	// timestamp, prefix, etc on the local log line, and on the one we
 	// post to the dashboard.
 	log.New(io.MultiWriter(lg.Writer(), &buf), lg.Prefix(), lg.Flags()).Printf(s)
-	LogToDash(buf.String())
-}
-
-func LogToDash(s string) {
 	go func() {
-		if err := logToDash(s); err != nil {
+		if err := logToDash(buf.String()); err != nil {
 			log.Printf("while logging to data browser: %v", err)
 		}
 	}()

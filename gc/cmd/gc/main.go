@@ -86,7 +86,7 @@ func initOutDir() error {
 		return os.MkdirAll(flagRootDir, 0750)
 	}
 
-	return utils.WaitForDrive(flagCaptain, 15*time.Minute)
+	return utils.WaitForDrive(flagCaptain, 8*time.Minute)
 }
 
 // Every flagGCInterval,

@@ -211,7 +211,7 @@ func initOutDir() error {
 		return os.MkdirAll(flagOutDir, 0750)
 	}
 
-	return utils.WaitForDrive(flagCaptain, 15*time.Minute)
+	return utils.WaitForDrive(flagCaptain, 6*time.Minute)
 }
 
 func checkFlags() error {

@@ -35,13 +35,13 @@ var theChans types.Chans
 func main() {
 	cfg, err := config.Parse()
 	if err != nil {
-		logger.Printf("while loading configuration: %v", err)
+		logger.Fatalf("while loading configuration: %v", err)
 	}
 	utils.LogAndDash(logger, fmt.Sprintf("configuration loaded:\n%+v", cfg))
 
 	if cfg.Captain != "" {
 		if err := utils.WaitForDrive(cfg.Captain, 5*time.Minute); err != nil {
-			utils.LogAndDash(logger, fmt.Sprintf("while waiting for captain: %v", err))
+			logger.Fatalf("while waiting for captain: %v", err)
 		}
 	}
 

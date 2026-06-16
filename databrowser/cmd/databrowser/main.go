@@ -67,7 +67,7 @@ func initStuff() {
 	}
 
 	if flagCaptain != "" {
-		if err := utils.WaitForDrive(flagCaptain, 15*time.Minute); err != nil {
+		if err := utils.WaitForDrive(flagCaptain, 7*time.Minute); err != nil {
 			log.Fatal(err)
 		}
 	}

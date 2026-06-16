@@ -109,10 +109,10 @@ func main() {
 			prepErr = err
 			prepMu.Unlock()
 			if err == nil {
-				log.Printf("device found")
+				log.Printf("device found: %s", device)
 				break
 			}
-			log.Printf("%v", err.Error())
+			log.Printf("while trying to find device: %v", err)
 			tries++
 			if tries >= maxTries {
 				reboot()
@@ -152,7 +152,7 @@ func main() {
 		pause = time.Second
 		maxPause = 5 * time.Minute
 		for {
-			part, err := partDevice(device)
+			part, err := partitionName(device)
 			if err == nil {
 				err = mount(part, flagMount)
 			}
@@ -259,7 +259,7 @@ func findDevice(device string) (string, error) {
 }
 
 // TODO: do we always assume partition one?
-func partDevice(device string) (string, error) {
+func partitionName(device string) (string, error) {
 	// TODO: find it dynamically in existing ones
 	if strings.HasPrefix(device, "/dev/sd") {
 		return device + "1", nil
@@ -350,6 +350,7 @@ func checkAndPrep(device, label string) error {
 }
 
 // returns error on critical problem. otherwise returns whether the drive needs to be prepped again.
+// TODO: simplify it all, remove needsPrep...
 func check(device, label string) (hasFiles, needsPrep bool, err error) {
 	theBackend, err := file.OpenFromPath(device, true)
 	if err != nil {
@@ -361,25 +362,25 @@ func check(device, label string) (hasFiles, needsPrep bool, err error) {
 		return false, false, err
 	}
 
-	// TODO: is it bad to assume we're always going to use the first partition?
-	// TODO: replace this (and all the diskfs stuff anyway with more reliable dosfs stuff)
-	fs, err := theDisk.GetFilesystem(1)
-	if err != nil {
-		if strings.HasPrefix(err.Error(), "unknown filesystem") {
-			return false, false, err
-		}
-		// TODO: could it fail for other reasons?
-		log.Printf("no existing filesystem found on device: %v", err)
-		return false, true, nil
-	}
-
-	part, err := partDevice(device)
+	part, err := partitionName(device)
 	if err != nil {
 		return false, false, err
 	}
 	hasFiles, err = checkFS(part)
 	if err != nil {
 		return hasFiles, false, err
+	}
+
+	// TODO: is it bad to assume we're always going to use the first partition?
+	// TODO: replace this (and all the diskfs stuff anyway with more reliable dosfs stuff)
+	fs, err := theDisk.GetFilesystem(1)
+	if err != nil {
+		if strings.HasPrefix(err.Error(), "unknown filesystem") {
+			return hasFiles, false, err
+		}
+		// TODO: could it fail for other reasons?
+		log.Printf("no existing filesystem found on device: %v", err)
+		return hasFiles, true, nil
 	}
 
 	lbl := fs.Label()
@@ -477,7 +478,7 @@ func prepSSD(label, device string) error {
 		log.Printf("while closing the disk: %v", err)
 	}
 
-	p, err := partDevice(device)
+	p, err := partitionName(device)
 	if err != nil {
 		return err
 	}
