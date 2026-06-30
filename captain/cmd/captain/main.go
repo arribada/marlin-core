@@ -6,6 +6,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -30,12 +31,13 @@ import (
 )
 
 var (
-	flagHost        string
-	flagDevice      string
-	flagLabel       string
-	flagMount       string
-	flagForce       bool
-	flagAllowFormat bool
+	flagHost         string
+	flagDevice       string
+	flagLabel        string
+	flagMount        string
+	flagForce        bool
+	flagAllowFormat  bool
+	flagTempInterval int
 )
 
 func init() {
@@ -45,6 +47,7 @@ func init() {
 	flag.StringVar(&flagMount, "mnt", "", "the mount point for the drive. empty means no mounting.")
 	flag.BoolVar(&flagForce, "force", false, "Skip all checks and force prep the drive (also overrides -format).")
 	flag.BoolVar(&flagAllowFormat, "format", false, "Whether we are allowed to actually format the drive if needed.")
+	flag.IntVar(&flagTempInterval, "temp_interval", 20, "Interval in seconds between each temperature check. Disabled if not positive.")
 }
 
 const (
@@ -92,6 +95,8 @@ func main() {
 		}
 		os.Exit(0)
 	}
+
+	monitorTemperature(context.Background())
 
 	go func() {
 		var device string
