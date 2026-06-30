@@ -5,6 +5,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -131,7 +132,8 @@ func retryConnect() {
 		if err == nil {
 			return
 		}
-		log.Printf("while trying to connect with cellular: %v\nretrying in %f", err, pause.Seconds())
+		log.Printf("%v", err)
+		log.Printf("retrying in %f", pause.Seconds())
 		time.Sleep(pause)
 		pause *= 2
 		if pause > maxPause {
@@ -141,23 +143,28 @@ func retryConnect() {
 }
 
 func connect() error {
-	var out []byte
-	var err error
-	if out, err = mbim(); err != nil {
-		return fmt.Errorf("%v: %v", err, string(out))
+	out, err := mbim()
+	if err != nil {
+		return fmt.Errorf("mbim error: %v", err)
 	}
 	if !strings.Contains(string(out), "Network started successfully") {
-		return fmt.Errorf("Failed to connect: %s", string(out))
+		return errors.New("no usable connection yet")
 	}
 
 	return nil
 }
 
-func mbim() ([]byte, error) {
+func mbim() (string, error) {
+	var stdout, stderr bytes.Buffer
 	cmd := exec.Command(flagMbimNet, "--pin", flagPin, "--profile", flagMbimProfile, "/dev/cdc-wdm0", "start")
-	cmd.Stderr = os.Stderr
-	out, err := cmd.Output()
-	fmt.Fprintf(os.Stdout, "%s", string(out))
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+	err := cmd.Run()
+	out := stdout.String()
+	log.Printf("%s", out)
+	if stderr.Len() > 0 {
+		log.Printf("%s", stderr.String())
+	}
 	return out, err
 }
 
@@ -207,6 +214,7 @@ func retryTestConn() error {
 func checkValidAddr() error {
 	// TODO: I'm sure there's a Go native way to get that info too, but going the easy way for now.
 	cmd := exec.Command("/usr/local/bin/busybox", "ifconfig", "wwan0")
+	// TODO: send everything to logger, even when not failing
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
 	strout := string(out)
