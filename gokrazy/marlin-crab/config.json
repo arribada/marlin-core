@@ -101,6 +101,7 @@
 				"-device=/dev/nvme0n1",
 				"-host=:7143",
 				"-label=MARLIN_DATA",
+				"-temp_interval=20",
 				"-mnt=/perm/marlin"
 			]
 		},
@@ -188,6 +189,7 @@
 				"-modelpath=/perm/transcribe/models/ggml-base.en.bin",
 				"-v=true",
 				"-stdout=true",
+				"-transcribe=false",
 				"-outdir=/perm/marlin"
 			]
 		},

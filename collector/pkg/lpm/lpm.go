@@ -66,7 +66,7 @@ type Config struct {
 
 var (
 	statusUpdatePeriod  = 30 * time.Second
-	batteryUpdatePeriod = 30 * time.Second
+	batteryUpdatePeriod = 15 * time.Second
 )
 
 // for passing around the cfg, and for caching some states
@@ -81,6 +81,7 @@ func Run(cfg Config, harbourMode bool, ctx context.Context) error {
 	if !cfg.Enabled {
 		return nil
 	}
+	logger.Printf("Harbour mode: %v", harbourMode)
 
 	// lpmio.Verbose = cfg.Verbose
 
@@ -124,9 +125,10 @@ func Run(cfg Config, harbourMode bool, ctx context.Context) error {
 	statusErrC := make(chan error)
 	go sendStatuses(ctx, cfg, statusErrC)
 
-	onBatteryC := make(chan bool)
+	battery.Verbose = false
+	dischargingC := make(chan bool)
 	lowVoltageC := make(chan struct{})
-	go monitorBattery(ctx, harbourMode, onBatteryC, lowVoltageC)
+	go monitorBattery(ctx, harbourMode, dischargingC, lowVoltageC)
 
 	// TODO: I suppose instead of returning we could have chans to
 	// communicate (battery stuff) between collector and lpm. But probably
@@ -140,7 +142,7 @@ func Run(cfg Config, harbourMode bool, ctx context.Context) error {
 		return err
 	case <-lowVoltageC:
 		return battery.LowVoltageErr
-	case v := <-onBatteryC:
+	case v := <-dischargingC:
 		if v {
 			return battery.OnBatteryErr
 		}
@@ -159,9 +161,10 @@ func sendHarbourMode(ctx context.Context, enter bool) error {
 	})
 }
 
-func monitorBattery(ctx context.Context, harbourMode bool, onBatteryC chan bool, lowVoltageC chan struct{}) {
+func monitorBattery(ctx context.Context, harbourMode bool, dischargingC chan bool, lowVoltageC chan struct{}) {
 	for {
 		if battery.IsLowVoltage() {
+			log.Printf("Low Voltage detected")
 			select {
 			case lowVoltageC <- struct{}{}:
 			case <-time.After(5 * time.Second):
@@ -170,24 +173,24 @@ func monitorBattery(ctx context.Context, harbourMode bool, onBatteryC chan bool,
 			return
 		}
 
-		onBattery := battery.IsDischarging()
-		if !harbourMode && onBattery {
+		discharging := battery.IsDischarging()
+		if !harbourMode && discharging {
 			if err := sendHarbourMode(ctx, true); err != nil {
 				logger.Printf("while sending harbour mode: %v", err)
 			}
 			select {
-			case onBatteryC <- true:
+			case dischargingC <- true:
 			case <-time.After(5 * time.Second):
 				logger.Printf("time out sending on battery status")
 			}
 			return
 		}
-		if harbourMode && !onBattery {
+		if harbourMode && !discharging {
 			if err := sendHarbourMode(ctx, false); err != nil {
 				logger.Printf("while sending harbour mode: %v", err)
 			}
 			select {
-			case onBatteryC <- false:
+			case dischargingC <- false:
 			case <-time.After(5 * time.Second):
 				logger.Printf("time out sending on battery status")
 			}

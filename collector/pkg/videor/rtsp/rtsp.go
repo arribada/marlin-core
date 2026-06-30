@@ -363,7 +363,7 @@ func (v *Videor) recording(ctx context.Context) error {
 		v.recordStopMu.Unlock()
 
 		statusMu.Lock()
-		status = true
+		status = false
 		statusMu.Unlock()
 		err := v.record(recordCtx)
 		cancel()
@@ -395,6 +395,9 @@ func (vr *Videor) record(ctx context.Context) (err error) {
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	statusMu.Lock()
+	status = true
+	statusMu.Unlock()
 	go func() {
 		// we don't want to do all that from within readPacket, because we
 		// have no control on whether/when OnPacketRTP is actually called, and

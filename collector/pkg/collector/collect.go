@@ -155,9 +155,17 @@ func setHarbourMode(cancel context.CancelFunc) error {
 }
 
 func setAtSeaMode(cancel context.CancelFunc) error {
-	// TODO: implement.
-	// Problem: need to recreate and reassign a new harbourCtx to everyone.
-	// Oh, maybe we simply just os.Exit and let gokrazy restart us?
+	utils.LogAndDash(Logger, "Switching to mains mode (restarting from scratch)")
+	// kinda useless/overkill since we're restarting anyway...
+	harbourModeMu.Lock()
+	harbourMode = false
+	harbourModeMu.Unlock()
+	cancel()
+	time.Sleep(10 * time.Second)
+	// restart from scratch, let gokrazy restart us
+	os.Exit(1)
+	// TODO: implement in a more subtle way?
+	// Problem: need to recreate and reassign a new harbourCtx to everyone, no?
 	return nil
 }
 
@@ -291,7 +299,7 @@ func runLPM(retryCtx context.Context, globalCancel, harbourCancel context.Cancel
 			return nil
 		}
 		if errors.Is(err, battery.OnMainsErr) {
-			if err := setAtSeaMode(harbourCancel); err != nil {
+			if err := setAtSeaMode(globalCancel); err != nil {
 				Logger.Printf("error while exiting harbour mode: %v", err)
 			}
 			return nil
