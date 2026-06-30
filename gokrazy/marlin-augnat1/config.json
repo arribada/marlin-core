@@ -231,7 +231,8 @@
 		"github.com/gokrazy/syslogd/cmd/gokr-syslogd": {
 			"CommandLineFlags": [
 				"-listen=:514",
-				"-goog_creds=/etc/marlin-sa-key.json"
+				"-goog_creds=/etc/marlin-sa-key.json",
+				"-goog_project=GOOG_LOG_PROJ"
 			],
 			"ExtraFilePaths": {
 				"/etc/marlin-sa-key.json": "marlin-sa-key.json"

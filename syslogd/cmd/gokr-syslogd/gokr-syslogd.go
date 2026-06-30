@@ -30,6 +30,8 @@ var (
 	flagListenAddrs     string
 	flagTestGoogLogging bool
 	flagGoogCredentials string
+	flagGoogProject     string
+	flagVerbose         bool
 )
 
 var (
@@ -54,6 +56,8 @@ func init() {
 	flag.StringVar(&flagListenAddrs, "listen", "127.0.0.1:5514", "[host]:port listen address")
 	flag.BoolVar(&flagTestGoogLogging, "testgoog", false, "test logging with goog cloud logging on startup and exit immediately")
 	flag.StringVar(&flagGoogCredentials, "goog_creds", "", "google application credentials file. leave empty to disable goog logging.")
+	flag.StringVar(&flagGoogProject, "goog_project", "", "google project name. needed for goog logging.")
+	flag.BoolVar(&flagVerbose, "v", false, "be verbose.")
 }
 
 type fileKey struct {
@@ -100,6 +104,9 @@ func (s *server) toDeleteLogFileNames(now time.Time) ([]string, error) {
 		return nil, err
 	}
 	for _, hostDir := range hostDirs {
+		if !hostDir.IsDir() {
+			continue
+		}
 		dir := filepath.Join(s.dir, hostDir.Name())
 		logFiles, err := os.ReadDir(dir)
 		if err != nil {
@@ -136,6 +143,9 @@ func (s *server) coldLogFileNames(now time.Time) ([]string, error) {
 		return nil, err
 	}
 	for _, hostDir := range hostDirs {
+		if !hostDir.IsDir() {
+			continue
+		}
 		dir := filepath.Join(s.dir, hostDir.Name())
 		logFiles, err := os.ReadDir(dir)
 		if err != nil {
@@ -336,14 +346,9 @@ func gokrsyslogd() error {
 			}
 			of.lastUse = time.Now()
 			fmt.Fprintf(of.f, "%s: %s\n", tag, content)
-			if glog != nil {
-				// TODO: we could easily filter on tag already here if we wanted to. And provide the tags as a flag to the program.
-				// But let's see first how easy it would be to filter by tag too on goog logging.
-				glog.Log(logging.Entry{Payload: MyEntry{
-					Hostname: hostname,
-					Tag:      tag,
-					Content:  content,
-				}})
+
+			if err := logToDB(hostname, tag, content); err != nil {
+				log.Printf("while writing log to db: %v", err)
 			}
 
 			stride--
@@ -383,18 +388,27 @@ func initGoogLogging() *logging.Client {
 		log.Println("no google application credentials file provided")
 		return nil
 	}
+	if flagGoogProject == "" {
+		log.Println("no google project name provided")
+		return nil
+	}
 	if err := os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", flagGoogCredentials); err != nil {
 		log.Println(err)
 		return nil
 	}
+
 	ctx := context.Background()
-	client, err := logging.NewClient(ctx, "nimble-crane-448814-k5")
+	client, err := logging.NewClient(ctx, flagGoogProject)
 	if err != nil {
 		log.Println(err)
 		return nil
 	}
 	// TODO: add hostname?
 	glog = client.Logger("marlin")
+
+	if err := initDB(); err != nil {
+		log.Fatal(err)
+	}
 	return client
 }
 
