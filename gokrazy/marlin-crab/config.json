@@ -156,7 +156,7 @@
 			"CommandLineFlags": [
 				"-pin=1234",
 				"-priority=-2",
-				"-debug=false",
+				"-debug=true",
 				"-v=true",
 				"-host=:3399"
 			]
@@ -221,7 +221,9 @@
 		"github.com/gokrazy/syslogd/cmd/gokr-syslogd": {
 			"CommandLineFlags": [
 				"-listen=:514",
-				"-goog_creds=/etc/marlin-sa-key.json"
+				"-v=true",
+				"-goog_creds=/etc/marlin-sa-key.json",
+				"-goog_project=GOOG_LOG_PROJ"
 			],
 			"ExtraFilePaths": {
 				"/etc/marlin-sa-key.json": "marlin-sa-key.json"
