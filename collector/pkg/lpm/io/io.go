@@ -6,6 +6,7 @@ package io
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -227,10 +228,15 @@ func GetReplies(ctx context.Context) {
 		}
 		if err := GetReply(); err != nil {
 			logger.Printf("while getting reply: %v", err)
+			if errors.Is(err, portClosed) {
+				return
+			}
 			continue
 		}
 	}
 }
+
+var portClosed = errors.New("port closed")
 
 // TODO: make it cancellable (and with timeout) ?
 func GetReply() error {
@@ -238,7 +244,11 @@ func GetReply() error {
 	p := make([]byte, 1024)
 	n, err := portr.Read(p)
 	if err != nil {
-		return fmt.Errorf("while reading reply: %v", err)
+		pt, ok := err.(*serial.PortError)
+		if ok && pt.Code() == serial.PortClosed {
+			return portClosed
+		}
+		return fmt.Errorf("while reading reply: %w", err)
 	}
 	if n == 0 {
 		return fmt.Errorf("empty reply")
