@@ -573,7 +573,7 @@ func (up *uploader) loop(ctx context.Context) {
 		run.FilesSeen = up.filesSeen
 		run.FilesToUpload = up.filesToUpload
 		// TODO: better report
-		logger.Printf("upload run report: %v", run)
+		logger.Printf("upload run report: %#v", run)
 
 		connectionStatusMu.Lock()
 		connectionStatus = (run.Err == nil)
@@ -750,12 +750,9 @@ func (up *uploader) uploadType(datetimeCl *directory.Client, dayDir, typeDir str
 			if !os.IsNotExist(err) {
 				return err
 			}
-			// TODO: think whether to investigate that case any further. At
-			// least we voluntarily do not remove the .upload marker, so that this
-			// gets logged everytime.
-			// return fmt.Errorf("upload marker file (%s) found, but corresponding file (%s) not found", name, fileToUpload)
+			// TODO: think whether to investigate that case any further.
 			logger.Printf("upload marker file (%s) found, but corresponding file (%s) not found. Skipping.", name, fileToUpload)
-			return nil
+			continue
 		}
 		up.filesToUpload++
 
@@ -766,7 +763,8 @@ func (up *uploader) uploadType(datetimeCl *directory.Client, dayDir, typeDir str
 		// because we didn't upload it if it was an empty file
 		if !done {
 			// Keep the upload marker around as a proof for later investigation
-			return nil
+			logger.Printf("upload marker file (%s) found, but corresponding file (%s) is empty. Skipping.", name, fileToUpload)
+			continue
 		}
 		up.filesUploaded++
 
