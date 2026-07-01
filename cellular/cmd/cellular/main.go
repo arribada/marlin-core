@@ -142,7 +142,31 @@ func retryConnect() {
 	}
 }
 
+func scanDevices() error {
+	ent, err := os.ReadDir("/dev")
+	if err != nil {
+		return err
+	}
+	log.Printf("Scanning devices:")
+	found := false
+	for _, v := range ent {
+		name := v.Name()
+		if !strings.HasPrefix(name, "cdc-wdm") {
+			continue
+		}
+		found = true
+		log.Printf("%v", name)
+	}
+	if !found {
+		return fmt.Errorf("No cellular device found")
+	}
+	return nil
+}
+
 func connect() error {
+	if err := scanDevices(); err != nil {
+		log.Printf("while scanning devices: %v", err)
+	}
 	out, err := mbim()
 	if err != nil {
 		return fmt.Errorf("mbim error: %v", err)
