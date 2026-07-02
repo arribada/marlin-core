@@ -22,7 +22,8 @@ var (
 	// TODO: review how transactions are implemented in sqlite, and reconsider that mutex
 	dbMu          sync.RWMutex
 	db            *sql.DB
-	logAgentPause = time.Minute
+	logAgentPause = 30 * time.Second
+	bunchSize     = 1000
 )
 
 func initDB() error {
@@ -81,8 +82,7 @@ func logsFromDB() ([]MyEntryID, error) {
 	dbMu.RLock()
 	// TODO: can probably be tighter, just after the call to Query
 	defer dbMu.RUnlock()
-	// TODO: looks like LIMIT does not work?
-	rows, err := db.Query("SELECT id, hostname, tag, content FROM log ORDER BY id ASC LIMIT 500;")
+	rows, err := db.Query(fmt.Sprintf("SELECT id, hostname, tag, content FROM log ORDER BY id ASC LIMIT %d;", bunchSize))
 	if err != nil {
 		return nil, err
 	}
