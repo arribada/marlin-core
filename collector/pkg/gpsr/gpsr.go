@@ -324,7 +324,7 @@ func (g *GPSr) parseGPS(l string) (bool, error) {
 
 	if rmc.Validity == "V" {
 		if g.config.Verbose {
-			logger.Printf("ignoring invalid RMC data")
+			// logger.Printf("ignoring invalid RMC data")
 		}
 		return false, nil
 	}
