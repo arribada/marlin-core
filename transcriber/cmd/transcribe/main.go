@@ -32,25 +32,27 @@ import (
 )
 
 var (
-	flagSource    string
-	flagOutDir    string
-	flagModelpath string
-	flagStdout    bool
-	flagCaptain   string
-	flagNoBracket bool
-	flagHost      string
-	flagVerbose   bool
+	flagSource       string
+	flagOutDir       string
+	flagModelpath    string
+	flagStdout       bool
+	flagCaptain      string
+	flagNoBracket    bool
+	flagHost         string
+	flagVerbose      bool
+	flagDoTranscribe bool
 )
 
 func init() {
 	flag.StringVar(&flagOutDir, "outdir", "./out", "output data directory")
-	flag.StringVar(&flagModelpath, "modelpath", "./data/models/ggml-base.en.bin", "path to the model file used for this run")
-	flag.BoolVar(&flagStdout, "stdout", false, "write transcribed text to stdout in addition to the json file")
-	flag.BoolVar(&flagVerbose, "v", false, "be verbose")
+	flag.StringVar(&flagModelpath, "modelpath", "./data/models/ggml-base.en.bin", "path to the model file used for this run.")
+	flag.BoolVar(&flagStdout, "stdout", false, "write transcribed text to stdout in addition to the json file.")
+	flag.BoolVar(&flagVerbose, "v", false, "be verbose.")
 	flag.StringVar(&flagSource, "source", "http://controller.local:7142", "Where to actively fetch audio from.")
 	flag.StringVar(&flagCaptain, "captain", "localhost:7143", "wait for captain (to have mounted an external drive at this host:port. Skip if empty.")
 	flag.BoolVar(&flagNoBracket, "nobracket", true, "Automatically filters out all non actual speech (music, silences, etc).")
-	flag.StringVar(&flagHost, "host", ":7141", "host:port on which we receive start/stop messages")
+	flag.StringVar(&flagHost, "host", ":7141", "host:port on which we receive start/stop messages.")
+	flag.BoolVar(&flagDoTranscribe, "transcribe", true, "Set to false for only capturing audio, and not transcribing it.")
 }
 
 const (
@@ -405,6 +407,10 @@ func runTranscriber(ctx context.Context) {
 			}
 		}()
 
+		if !flagDoTranscribe {
+			continue
+		}
+
 		segments, err := transcribe(samples.asFloats)
 		if err != nil {
 			if err == noSamplesErr {
@@ -433,6 +439,9 @@ func runTranscriber(ctx context.Context) {
 			log.Printf("error while writing STT file: %v", err)
 			continue
 		}
+
+		// give it a little pause, as we immediately die of heat/undervoltage? otherwise
+		time.Sleep(2 * time.Second)
 	}
 }
 
