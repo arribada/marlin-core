@@ -55,7 +55,8 @@ func logToDB(hostname, tag, content string) error {
 	if tag != "captain" &&
 		tag != "cellular" &&
 		tag != "collect" &&
-		tag != "selfupdate" {
+		tag != "selfupdate" &&
+		tag != "transcribe" {
 		return nil
 	}
 
