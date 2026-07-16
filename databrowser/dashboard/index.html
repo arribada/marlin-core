@@ -20,8 +20,9 @@
 
     <div id="trip-list"></div>
 
-    <div id="footer" style="display:none;"></div>
+    <div id="list-footer" style="display:none;"></div>
 
+    <div id="logs-link"></div>
   </div>
 
   <script>
@@ -36,8 +37,7 @@
     // Formats a date as "Friday, 20 March 2026"
     function formatFull(date) {
       return date.toLocaleDateString('en-GB', {
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-        timeZone: 'UTC'
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC'
       });
     }
 
@@ -103,7 +103,7 @@
       a.innerHTML = `
         <div class="card-left">
           <div class="card-icon">
-            <i data-lucide="folder" style="width:18px;height:18px;"></i>
+            <i data-lucide="${entry.icon || 'folder'}" style="width:18px;height:18px;"></i>
           </div>
           <div>
             <div class="card-date">${entry.name}</div>
@@ -119,7 +119,8 @@
 
     function render({ dated, extras }) {
       const list = document.getElementById('trip-list');
-      const footer = document.getElementById('footer');
+      const footer = document.getElementById('list-footer');
+      const logsLink = document.getElementById('logs-link');
       list.innerHTML = '';
 
       if (dated.length === 0 && extras.length === 0) {
@@ -151,23 +152,27 @@
         list.appendChild(group);
       });
 
+      footer.style.display = 'block';
+      footer.innerHTML = `<p>${dated.length} trip folder${dated.length !== 1 ? 's' : ''}</p>`;
+
+      const extrasGroup = document.createElement('div');
+      extrasGroup.className = 'month-group';
+      extrasGroup.innerHTML = `<div class="month-header"><h3>Additional</h3><div class="divider"></div></div>`;
+
+      const logsCard = buildExtraCard({ href: 'logs.html', name: 'Logs', icon: 'scroll-text' }, i++);
+      logsCard.classList.add('logs-card');
+      extrasGroup.appendChild(logsCard);
+
+      footer.insertAdjacentElement('afterend', extrasGroup);
+
       // -------------------------------------------------------------
-      // UNCOMMENT IF WE WANT TO SHOW NON-DATE FOLDERS ON THE HOMEPAGE
+      // UNCOMMENT IF WE WANT TO SHOW NON-DATE FOLDERS
       // -------------------------------------------------------------
       // if (extras.length > 0) {
-      //   const extrasGroup = document.createElement('div');
-      //   extrasGroup.className = 'month-group';
-      //   extrasGroup.innerHTML = `<div class="month-header"><h3>Additionals</h3><div class="divider"></div></div>`;
       //   extras.forEach(entry => extrasGroup.appendChild(buildExtraCard(entry, i++)));
-      //   list.appendChild(extrasGroup);
+      //   footer.insertAdjacentElement('afterend', extrasGroup);
       // }
 
-      footer.style.display = 'block';
-      footer.innerHTML = `
-        <p>
-          ${dated.length} trip folder${dated.length !== 1 ? 's' : ''}
-        </p>
-      `;
       lucide.createIcons();
     }
 
