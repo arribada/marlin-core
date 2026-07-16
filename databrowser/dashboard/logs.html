@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Device Logs</title>
+
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="assets/lucide.min.js"></script>
+</head>
+
+<body>
+  <div class="container">
+
+    <div class="trip-header">
+      <a href="index.html" class="back-btn">
+        <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
+        Back to Trips
+      </a>
+
+      <div class="logs-header-row">
+        <div class="logs-title-group">
+          <div class="header-icon">
+            <i data-lucide="terminal" style="width:20px;height:20px;"></i>
+          </div>
+          <div>
+            <h1 style="margin-bottom:0;">Device Logs</h1>
+          </div>
+        </div>
+
+        <button id="refresh-btn" class="refresh-btn">
+          <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i>
+          <span>Refresh</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="terminal">
+      <div class="terminal-bar">
+        <strong>Logs</strong>
+      </div>
+
+      <div id="log-list" class="log-list">
+        <div id="empty-state" class="empty">
+          <i data-lucide="terminal" style="width:32px;height:32px;"></i>
+          <h3>No log output yet</h3>
+        </div>
+
+        <div id="log-rows" style="display:none;"></div>
+        <div id="bottom-anchor"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let logs = [];
+
+    const logListEl = document.getElementById('log-list');
+    const logRowsEl = document.getElementById('log-rows');
+    const emptyStateEl = document.getElementById('empty-state');
+    const bottomAnchor = document.getElementById('bottom-anchor');
+    const refreshBtn = document.getElementById('refresh-btn');
+
+    function parseLogEntry(raw, id) {
+      const match = raw.match(/^(\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}:\d{2}) (\w+): (.+)$/);
+
+      if (!match) {
+        return { id, timestamp: '', source: 'system', message: raw };
+      }
+
+      const [, timestamp, source, message] = match;
+
+      return { id, timestamp, source, message };
+    }
+
+    function renderRow(entry) {
+      const row = document.createElement('div');
+      row.className = 'log-row';
+      row.innerHTML = `
+        <div class="log-meta">
+          <span class="log-timestamp">${entry.timestamp}</span>
+        </div>
+        <p class="log-message">${entry.source}: ${entry.message}</p>
+      `;
+      return row;
+    }
+
+    function render() {
+      if (logs.length === 0) {
+        emptyStateEl.style.display = 'flex';
+        logRowsEl.style.display = 'none';
+        logRowsEl.innerHTML = '';
+        return;
+      }
+
+      emptyStateEl.style.display = 'none';
+      logRowsEl.style.display = 'block';
+      logRowsEl.innerHTML = '';
+
+      logs.forEach(entry => logRowsEl.appendChild(renderRow(entry)));
+
+      bottomAnchor.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function loadLogs() {
+      try {
+        const response = await fetch("/logs");
+
+        if (!response.ok) {
+          throw new Error(`Failed to load logs (${response.status})`);
+        }
+
+        const rawLogs = await response.json();
+        logs = rawLogs.map((raw, i) => parseLogEntry(raw, i));
+        render();
+      } catch (error) {
+        console.error("Failed to load logs:", error);
+        logs = [];
+        render();
+      }
+    }
+
+    refreshBtn.addEventListener('click', () => { loadLogs()});
+    loadLogs();
+
+    lucide.createIcons();
+  </script>
+</body>
+</html>
