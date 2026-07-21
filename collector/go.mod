@@ -7,7 +7,7 @@ require (
 	github.com/adrianmo/go-nmea v1.10.0
 	github.com/arribada/marlin-common v0.1.0
 	github.com/bluenviron/gortsplib/v5 v5.2.2
-	github.com/bluenviron/mediacommon/v2 v2.6.0
+	github.com/bluenviron/mediacommon/v2 v2.9.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/mpl/basicauth v0.0.0-20250721104714-3b2305e49960
 	github.com/pion/rtp v1.10.0
@@ -23,7 +23,7 @@ require (
 	github.com/akutz/memconn v0.1.0 // indirect
 	github.com/alexbrainman/sspi v0.0.0-20231016080023-1a75b4708caa // indirect
 	github.com/asticode/go-astikit v0.30.0 // indirect
-	github.com/asticode/go-astits v1.14.0 // indirect
+	github.com/asticode/go-astits v1.15.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.41.0 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.29.5 // indirect

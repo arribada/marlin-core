@@ -541,7 +541,7 @@ func tsToMP4(input string) (string, string, error) {
 	output := strings.Replace(input, ".ts", ".mp4", 1)
 	var stderr bytes.Buffer
 	var stdout bytes.Buffer
-	cmd := exec.Command(FFmpgebin, "-i", input, output)
+	cmd := exec.Command(FFmpgebin, "-i", input, "-c", "copy", output)
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout
 	err := cmd.Run()
