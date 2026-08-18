@@ -27,9 +27,8 @@ var (
 
 	Mu      sync.RWMutex
 	Voltage float64
-	// Current < 0 means battery is charging
-	// Current == 0 means battery full
-	// Current > 0 means battery is discharging (and we should switch to low activity mode)
+	// Current < DischargingThreshold means battery is discharging
+	// (and we should switch to low activity mode)
 	Current float64
 )
 
