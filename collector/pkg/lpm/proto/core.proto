@@ -9,6 +9,7 @@ message SysInit {
     string rconf = 4;
     string hostname = 5;
     string wifi_network = 6;
+    int64 time = 7;
 }
 
 message SatMessage {

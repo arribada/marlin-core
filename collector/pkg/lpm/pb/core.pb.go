@@ -173,6 +173,7 @@ type SysInit struct {
 	Rconf         string                 `protobuf:"bytes,4,opt,name=rconf,proto3" json:"rconf,omitempty"`
 	Hostname      string                 `protobuf:"bytes,5,opt,name=hostname,proto3" json:"hostname,omitempty"`
 	WifiNetwork   string                 `protobuf:"bytes,6,opt,name=wifi_network,json=wifiNetwork,proto3" json:"wifi_network,omitempty"`
+	Time          int64                  `protobuf:"varint,7,opt,name=time,proto3" json:"time,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -247,6 +248,13 @@ func (x *SysInit) GetWifiNetwork() string {
 		return x.WifiNetwork
 	}
 	return ""
+}
+
+func (x *SysInit) GetTime() int64 {
+	if x != nil {
+		return x.Time
+	}
+	return 0
 }
 
 type SatMessage struct {
@@ -699,14 +707,15 @@ var File_proto_core_proto protoreflect.FileDescriptor
 
 const file_proto_core_proto_rawDesc = "" +
 	"\n" +
-	"\x10proto/core.proto\x12\x03sat\"\x9b\x01\n" +
+	"\x10proto/core.proto\x12\x03sat\"\xaf\x01\n" +
 	"\aSysInit\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04addr\x18\x02 \x01(\tR\x04addr\x12\x17\n" +
 	"\asec_key\x18\x03 \x01(\tR\x06secKey\x12\x14\n" +
 	"\x05rconf\x18\x04 \x01(\tR\x05rconf\x12\x1a\n" +
 	"\bhostname\x18\x05 \x01(\tR\bhostname\x12!\n" +
-	"\fwifi_network\x18\x06 \x01(\tR\vwifiNetwork\"&\n" +
+	"\fwifi_network\x18\x06 \x01(\tR\vwifiNetwork\x12\x12\n" +
+	"\x04time\x18\a \x01(\x03R\x04time\"&\n" +
 	"\n" +
 	"SatMessage\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\"\xb1\x04\n" +

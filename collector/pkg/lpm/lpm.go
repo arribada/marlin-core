@@ -84,6 +84,7 @@ func Run(cfg Config, harbourMode bool, ctx context.Context) error {
 	logger.Printf("Harbour mode: %v", harbourMode)
 
 	// lpmio.Verbose = cfg.Verbose
+	// lpmio.Verbose = true
 
 	if cfg.Device == "" {
 		dev, err := findSerialUSBDevice(cfg.DeviceID, true)
@@ -111,6 +112,7 @@ func Run(cfg Config, harbourMode bool, ctx context.Context) error {
 		Rconf:       cfg.Rconf,
 		Hostname:    cfg.Hostname,
 		WifiNetwork: cfg.WifiNetwork,
+		Time:        time.Now().UTC().Unix(),
 	}
 	if err := lpmio.InitRetry(&sysInit, ctx); err != nil {
 		return fmt.Errorf("while initializing device: %v", err)
