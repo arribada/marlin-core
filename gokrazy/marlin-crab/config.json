@@ -23,6 +23,7 @@
 		"github.com/arribada/marlin-core/gengps/cmd/gengps",
 		"github.com/arribada/marlin-core/captain/cmd/captain",
 		"github.com/arribada/marlin-core/captain/cmd/rebgoot",
+		"github.com/arribada/marlin-core/captain/cmd/sf",
 		"github.com/arribada/marlin-core/gateway/cmd/gateway",
 		"github.com/arribada/marlin-core/ap/cmd/ap",
 		"github.com/rtr7/router7/cmd/dhcp4d"
@@ -107,6 +108,12 @@
 		},
 		"github.com/arribada/marlin-core/captain/cmd/rebgoot": {
 			"DontStart": true
+		},
+		"github.com/arribada/marlin-core/captain/cmd/sf": {
+			"DontStart": true,
+			"CommandLineFlags": [
+				"-n=500"
+			]
 		},
 		"github.com/arribada/marlin-core/collector/cmd/collect": {
 			"ExtraFilePaths": {
