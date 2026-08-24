@@ -19,7 +19,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&flagDataDir, "datadir", "/perm/marlin/rand", "where to write the filler files")
+	flag.StringVar(&flagDataDir, "datadir", "/perm/marlin/.rand", "where to write the filler files")
 	flag.IntVar(&flagCount, "n", 0, "where to start the file counter")
 }
 

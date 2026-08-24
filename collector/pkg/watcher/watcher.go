@@ -658,10 +658,11 @@ func (up *uploader) uploadAll() error {
 		name := d.Name()
 		// TODO: remove when new disk
 		if name == "sensordata" {
-			return nil
+			return filepath.SkipDir
 		}
-		if name == ".tmp" {
-			return nil
+		// ignore all hidden files/dirs
+		if strings.HasPrefix(name, ".") {
+			return filepath.SkipDir
 		}
 
 		t, err := time.Parse(time.DateOnly, name)
