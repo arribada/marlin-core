@@ -65,7 +65,7 @@ type Config struct {
 }
 
 var (
-	statusUpdatePeriod  = 30 * time.Second
+	statusUpdatePeriod  = 25 * time.Second
 	batteryUpdatePeriod = 15 * time.Second
 )
 
