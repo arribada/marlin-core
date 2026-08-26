@@ -329,6 +329,24 @@ func sendSysInit(sysInit *pb.SysInit) error {
 	return send(out, id, false)
 }
 
+func SendReset() error {
+	idMu.Lock()
+	id := msgID
+	msg := &pb.CoreMessage{
+		MsgId:   id,
+		Message: &pb.CoreMessage_Reset_{},
+	}
+	msgID++
+	idMu.Unlock()
+
+	out, err := proto.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("while encoding Reset message %d: %v", id, err)
+	}
+
+	return send(out, id, false)
+}
+
 func AlertToBytes(alert sat.Alert) ([]byte, error) {
 	return sat.GenRawData(alert.Latitude, alert.Longitude, alert.Time, sat.LDA2Size)
 }

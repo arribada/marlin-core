@@ -28,6 +28,9 @@
 		"github.com/arribada/marlin-core/ap/cmd/ap",
 		"github.com/rtr7/router7/cmd/dhcp4d"
 	],
+	"BootloaderExtraLines": [
+		"dtoverlay=gpio-shutdown"
+	],
 	"PackageConfig": {
 		"github.com/arribada/marlin-core/ap/cmd/ap": {
 			"ExtraFilePaths": {

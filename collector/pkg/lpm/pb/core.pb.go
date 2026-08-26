@@ -70,7 +70,7 @@ func (x CoreStatus_Status) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use CoreStatus_Status.Descriptor instead.
 func (CoreStatus_Status) EnumDescriptor() ([]byte, []int) {
-	return file_proto_core_proto_rawDescGZIP(), []int{2, 0}
+	return file_proto_core_proto_rawDescGZIP(), []int{3, 0}
 }
 
 type HarbourMode_Command int32
@@ -116,7 +116,7 @@ func (x HarbourMode_Command) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use HarbourMode_Command.Descriptor instead.
 func (HarbourMode_Command) EnumDescriptor() ([]byte, []int) {
-	return file_proto_core_proto_rawDescGZIP(), []int{3, 0}
+	return file_proto_core_proto_rawDescGZIP(), []int{4, 0}
 }
 
 type LpmReply_Response int32
@@ -162,7 +162,7 @@ func (x LpmReply_Response) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use LpmReply_Response.Descriptor instead.
 func (LpmReply_Response) EnumDescriptor() ([]byte, []int) {
-	return file_proto_core_proto_rawDescGZIP(), []int{6, 0}
+	return file_proto_core_proto_rawDescGZIP(), []int{7, 0}
 }
 
 type SysInit struct {
@@ -301,6 +301,42 @@ func (x *SatMessage) GetMessage() string {
 	return ""
 }
 
+type ResetMessage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResetMessage) Reset() {
+	*x = ResetMessage{}
+	mi := &file_proto_core_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResetMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResetMessage) ProtoMessage() {}
+
+func (x *ResetMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_core_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResetMessage.ProtoReflect.Descriptor instead.
+func (*ResetMessage) Descriptor() ([]byte, []int) {
+	return file_proto_core_proto_rawDescGZIP(), []int{2}
+}
+
 type CoreStatus struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Camera          CoreStatus_Status      `protobuf:"varint,1,opt,name=camera,proto3,enum=sat.CoreStatus_Status" json:"camera,omitempty"`
@@ -319,7 +355,7 @@ type CoreStatus struct {
 
 func (x *CoreStatus) Reset() {
 	*x = CoreStatus{}
-	mi := &file_proto_core_proto_msgTypes[2]
+	mi := &file_proto_core_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -331,7 +367,7 @@ func (x *CoreStatus) String() string {
 func (*CoreStatus) ProtoMessage() {}
 
 func (x *CoreStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_core_proto_msgTypes[2]
+	mi := &file_proto_core_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -344,7 +380,7 @@ func (x *CoreStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoreStatus.ProtoReflect.Descriptor instead.
 func (*CoreStatus) Descriptor() ([]byte, []int) {
-	return file_proto_core_proto_rawDescGZIP(), []int{2}
+	return file_proto_core_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CoreStatus) GetCamera() CoreStatus_Status {
@@ -426,7 +462,7 @@ type HarbourMode struct {
 
 func (x *HarbourMode) Reset() {
 	*x = HarbourMode{}
-	mi := &file_proto_core_proto_msgTypes[3]
+	mi := &file_proto_core_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -438,7 +474,7 @@ func (x *HarbourMode) String() string {
 func (*HarbourMode) ProtoMessage() {}
 
 func (x *HarbourMode) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_core_proto_msgTypes[3]
+	mi := &file_proto_core_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -451,7 +487,7 @@ func (x *HarbourMode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HarbourMode.ProtoReflect.Descriptor instead.
 func (*HarbourMode) Descriptor() ([]byte, []int) {
-	return file_proto_core_proto_rawDescGZIP(), []int{3}
+	return file_proto_core_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *HarbourMode) GetCmd() HarbourMode_Command {
@@ -470,6 +506,7 @@ type CoreMessage struct {
 	//	*CoreMessage_Init
 	//	*CoreMessage_Status
 	//	*CoreMessage_Mode
+	//	*CoreMessage_Reset_
 	Message       isCoreMessage_Message `protobuf_oneof:"message"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -477,7 +514,7 @@ type CoreMessage struct {
 
 func (x *CoreMessage) Reset() {
 	*x = CoreMessage{}
-	mi := &file_proto_core_proto_msgTypes[4]
+	mi := &file_proto_core_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -489,7 +526,7 @@ func (x *CoreMessage) String() string {
 func (*CoreMessage) ProtoMessage() {}
 
 func (x *CoreMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_core_proto_msgTypes[4]
+	mi := &file_proto_core_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -502,7 +539,7 @@ func (x *CoreMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CoreMessage.ProtoReflect.Descriptor instead.
 func (*CoreMessage) Descriptor() ([]byte, []int) {
-	return file_proto_core_proto_rawDescGZIP(), []int{4}
+	return file_proto_core_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *CoreMessage) GetMsgId() uint32 {
@@ -555,6 +592,15 @@ func (x *CoreMessage) GetMode() *HarbourMode {
 	return nil
 }
 
+func (x *CoreMessage) GetReset_() *ResetMessage {
+	if x != nil {
+		if x, ok := x.Message.(*CoreMessage_Reset_); ok {
+			return x.Reset_
+		}
+	}
+	return nil
+}
+
 type isCoreMessage_Message interface {
 	isCoreMessage_Message()
 }
@@ -575,6 +621,10 @@ type CoreMessage_Mode struct {
 	Mode *HarbourMode `protobuf:"bytes,5,opt,name=mode,proto3,oneof"`
 }
 
+type CoreMessage_Reset_ struct {
+	Reset_ *ResetMessage `protobuf:"bytes,6,opt,name=reset,proto3,oneof"`
+}
+
 func (*CoreMessage_Sat) isCoreMessage_Message() {}
 
 func (*CoreMessage_Init) isCoreMessage_Message() {}
@@ -582,6 +632,8 @@ func (*CoreMessage_Init) isCoreMessage_Message() {}
 func (*CoreMessage_Status) isCoreMessage_Message() {}
 
 func (*CoreMessage_Mode) isCoreMessage_Message() {}
+
+func (*CoreMessage_Reset_) isCoreMessage_Message() {}
 
 type BatteryStatus struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -594,7 +646,7 @@ type BatteryStatus struct {
 
 func (x *BatteryStatus) Reset() {
 	*x = BatteryStatus{}
-	mi := &file_proto_core_proto_msgTypes[5]
+	mi := &file_proto_core_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -606,7 +658,7 @@ func (x *BatteryStatus) String() string {
 func (*BatteryStatus) ProtoMessage() {}
 
 func (x *BatteryStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_core_proto_msgTypes[5]
+	mi := &file_proto_core_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -619,7 +671,7 @@ func (x *BatteryStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatteryStatus.ProtoReflect.Descriptor instead.
 func (*BatteryStatus) Descriptor() ([]byte, []int) {
-	return file_proto_core_proto_rawDescGZIP(), []int{5}
+	return file_proto_core_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *BatteryStatus) GetSet() bool {
@@ -654,7 +706,7 @@ type LpmReply struct {
 
 func (x *LpmReply) Reset() {
 	*x = LpmReply{}
-	mi := &file_proto_core_proto_msgTypes[6]
+	mi := &file_proto_core_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -666,7 +718,7 @@ func (x *LpmReply) String() string {
 func (*LpmReply) ProtoMessage() {}
 
 func (x *LpmReply) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_core_proto_msgTypes[6]
+	mi := &file_proto_core_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -679,7 +731,7 @@ func (x *LpmReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LpmReply.ProtoReflect.Descriptor instead.
 func (*LpmReply) Descriptor() ([]byte, []int) {
-	return file_proto_core_proto_rawDescGZIP(), []int{6}
+	return file_proto_core_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *LpmReply) GetMsgId() uint32 {
@@ -718,7 +770,8 @@ const file_proto_core_proto_rawDesc = "" +
 	"\x04time\x18\a \x01(\x03R\x04time\"&\n" +
 	"\n" +
 	"SatMessage\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"\xb1\x04\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\x0e\n" +
+	"\fResetMessage\"\xb1\x04\n" +
 	"\n" +
 	"CoreStatus\x12.\n" +
 	"\x06camera\x18\x01 \x01(\x0e2\x16.sat.CoreStatus.StatusR\x06camera\x126\n" +
@@ -745,13 +798,14 @@ const file_proto_core_proto_rawDesc = "" +
 	"\x03cmd\x18\x01 \x01(\x0e2\x18.sat.HarbourMode.CommandR\x03cmd\"\x1e\n" +
 	"\aCommand\x12\t\n" +
 	"\x05ENTER\x10\x00\x12\b\n" +
-	"\x04EXIT\x10\x01\"\xcb\x01\n" +
+	"\x04EXIT\x10\x01\"\xf6\x01\n" +
 	"\vCoreMessage\x12\x15\n" +
 	"\x06msg_id\x18\x01 \x01(\rR\x05msgId\x12#\n" +
 	"\x03sat\x18\x02 \x01(\v2\x0f.sat.SatMessageH\x00R\x03sat\x12\"\n" +
 	"\x04init\x18\x03 \x01(\v2\f.sat.SysInitH\x00R\x04init\x12)\n" +
 	"\x06status\x18\x04 \x01(\v2\x0f.sat.CoreStatusH\x00R\x06status\x12&\n" +
-	"\x04mode\x18\x05 \x01(\v2\x10.sat.HarbourModeH\x00R\x04modeB\t\n" +
+	"\x04mode\x18\x05 \x01(\v2\x10.sat.HarbourModeH\x00R\x04mode\x12)\n" +
+	"\x05reset\x18\x06 \x01(\v2\x11.sat.ResetMessageH\x00R\x05resetB\t\n" +
 	"\amessage\"U\n" +
 	"\rBatteryStatus\x12\x10\n" +
 	"\x03set\x18\x01 \x01(\bR\x03set\x12\x18\n" +
@@ -778,18 +832,19 @@ func file_proto_core_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_core_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_proto_core_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_proto_core_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_proto_core_proto_goTypes = []any{
 	(CoreStatus_Status)(0),   // 0: sat.CoreStatus.Status
 	(HarbourMode_Command)(0), // 1: sat.HarbourMode.Command
 	(LpmReply_Response)(0),   // 2: sat.LpmReply.Response
 	(*SysInit)(nil),          // 3: sat.SysInit
 	(*SatMessage)(nil),       // 4: sat.SatMessage
-	(*CoreStatus)(nil),       // 5: sat.CoreStatus
-	(*HarbourMode)(nil),      // 6: sat.HarbourMode
-	(*CoreMessage)(nil),      // 7: sat.CoreMessage
-	(*BatteryStatus)(nil),    // 8: sat.BatteryStatus
-	(*LpmReply)(nil),         // 9: sat.LpmReply
+	(*ResetMessage)(nil),     // 5: sat.ResetMessage
+	(*CoreStatus)(nil),       // 6: sat.CoreStatus
+	(*HarbourMode)(nil),      // 7: sat.HarbourMode
+	(*CoreMessage)(nil),      // 8: sat.CoreMessage
+	(*BatteryStatus)(nil),    // 9: sat.BatteryStatus
+	(*LpmReply)(nil),         // 10: sat.LpmReply
 }
 var file_proto_core_proto_depIdxs = []int32{
 	0,  // 0: sat.CoreStatus.camera:type_name -> sat.CoreStatus.Status
@@ -803,15 +858,16 @@ var file_proto_core_proto_depIdxs = []int32{
 	1,  // 8: sat.HarbourMode.cmd:type_name -> sat.HarbourMode.Command
 	4,  // 9: sat.CoreMessage.sat:type_name -> sat.SatMessage
 	3,  // 10: sat.CoreMessage.init:type_name -> sat.SysInit
-	5,  // 11: sat.CoreMessage.status:type_name -> sat.CoreStatus
-	6,  // 12: sat.CoreMessage.mode:type_name -> sat.HarbourMode
-	2,  // 13: sat.LpmReply.response:type_name -> sat.LpmReply.Response
-	8,  // 14: sat.LpmReply.batteryStatus:type_name -> sat.BatteryStatus
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	6,  // 11: sat.CoreMessage.status:type_name -> sat.CoreStatus
+	7,  // 12: sat.CoreMessage.mode:type_name -> sat.HarbourMode
+	5,  // 13: sat.CoreMessage.reset:type_name -> sat.ResetMessage
+	2,  // 14: sat.LpmReply.response:type_name -> sat.LpmReply.Response
+	9,  // 15: sat.LpmReply.batteryStatus:type_name -> sat.BatteryStatus
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_proto_core_proto_init() }
@@ -819,11 +875,12 @@ func file_proto_core_proto_init() {
 	if File_proto_core_proto != nil {
 		return
 	}
-	file_proto_core_proto_msgTypes[4].OneofWrappers = []any{
+	file_proto_core_proto_msgTypes[5].OneofWrappers = []any{
 		(*CoreMessage_Sat)(nil),
 		(*CoreMessage_Init)(nil),
 		(*CoreMessage_Status)(nil),
 		(*CoreMessage_Mode)(nil),
+		(*CoreMessage_Reset_)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -831,7 +888,7 @@ func file_proto_core_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_core_proto_rawDesc), len(file_proto_core_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   7,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

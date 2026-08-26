@@ -16,6 +16,8 @@ message SatMessage {
     string message = 1;
 }
 
+message ResetMessage {}
+
 message CoreStatus {
     Status camera = 1;
     Status controller = 2;
@@ -52,6 +54,7 @@ message CoreMessage {
         SysInit init = 3;
         CoreStatus status = 4;
         HarbourMode mode = 5;
+        ResetMessage reset = 6;
     }
 }
 

@@ -247,7 +247,7 @@ func runSignalHandler(cancel context.CancelFunc) {
 
 func runConfigserver(ctx context.Context, cfg *config.Config) {
 	// TODO: all in a retry as well?
-	srv := gui.New(":8080", cfg)
+	srv := gui.New("", cfg)
 
 	idleConnsClosed := make(chan struct{})
 	go func() {

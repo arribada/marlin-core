@@ -126,6 +126,7 @@ func Run(cfg Config, harbourMode bool, ctx context.Context) error {
 
 	statusErrC := make(chan error)
 	go sendStatuses(ctx, cfg, statusErrC)
+	// go sendReset()
 
 	battery.Verbose = false
 	dischargingC := make(chan bool)
@@ -233,6 +234,13 @@ func sendStatuses(ctx context.Context, cfg Config, statusErrC chan error) {
 	case statusErrC <- fmt.Errorf("while sending core status: %v", err):
 	case <-time.After(5 * time.Second):
 		logger.Printf("time out sending core status error")
+	}
+}
+
+func sendReset() {
+	time.Sleep(2 * time.Minute)
+	if err := lpmio.SendReset(); err != nil {
+		log.Printf("SENDING RESET: %v", err)
 	}
 }
 
