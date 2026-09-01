@@ -108,6 +108,17 @@ func main() {
 	// let DHCP do its thing
 	time.Sleep(time.Minute)
 
+	// TODO: fix bullshit stdout/stderr as usual
+	if _, err := restartTailscale(); err != nil {
+		log.Fatalf("goks error: %v", err)
+	}
+	/*
+		// TODO: ah this does not work because "restarted" is on stderr because I did a println. Need to fix it from within goks.
+		if !strings.Contains(string(out), "restarted") {
+			log.Fatalf("failed to restart tailscaled")
+		}
+	*/
+
 	if err := retryTestConn(); err != nil {
 		log.Fatal(err)
 	}
@@ -329,4 +340,26 @@ func testConnection() (bool, error) {
 		log.Printf("bad pings ratio: %f", badPingRatio)
 	}
 	return false, nil
+}
+
+func restartTailscale() (string, error) {
+	password := os.Getenv("GOKRAZY_PASS")
+	if password == "" {
+		return "", errors.New("GOKRAZY_PASS not set")
+	}
+	var stdout, stderr bytes.Buffer
+	cmd := exec.Command("/user/goks",
+		"-user", "gokrazy",
+		"-password", password,
+		"-svc", "/user/tailscaled",
+		"-pause", "5")
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+	err := cmd.Run()
+	out := stdout.String()
+	log.Printf("%s", out)
+	if stderr.Len() > 0 {
+		log.Printf("%s", stderr.String())
+	}
+	return out, err
 }

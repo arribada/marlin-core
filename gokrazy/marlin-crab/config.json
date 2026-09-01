@@ -16,6 +16,7 @@
 		"github.com/arribada/marlin-core/transcriber/cmd/transcribe",
 		"github.com/gokrazy/syslogd/cmd/gokr-syslogd",
 		"github.com/arribada/marlin-core/cellular/cmd/cellular",
+		"github.com/arribada/marlin-core/cellular/cmd/goks",
 		"github.com/arribada/marlin-core/collector/cmd/collect",
 		"github.com/arribada/marlin-core/collector/integration",
 		"github.com/arribada/marlin-core/databrowser/cmd/databrowser",
@@ -164,6 +165,9 @@
 				"/usr/local/lib/mbim/libselinux.so.1": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/libselinux.so.1",
 				"/usr/local/lib/mbim/libz.so.1": "/home/marlin/src/github.com/arribada/marlin-core/cellular/freeze/libz.so.1"
 			},
+			"Environment": [
+				"GOKRAZY_PASS=GOKRAZY_PASS_VAL"
+			],
 			"CommandLineFlags": [
 				"-pin=1234",
 				"-priority=-2",
@@ -171,6 +175,9 @@
 				"-v=true",
 				"-host=:3399"
 			]
+		},
+		"github.com/arribada/marlin-core/cellular/cmd/goks": {
+			"DontStart": true
 		},
 		"github.com/arribada/marlin-core/databrowser/cmd/databrowser": {
 			"WaitForClock": true,
