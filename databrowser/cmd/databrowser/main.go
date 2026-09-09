@@ -295,6 +295,7 @@ func serveDir(w http.ResponseWriter, r *http.Request, fullPath string) {
 		http.Error(w, "", 500)
 		return
 	}
+	sort.Strings(ent)
 
 	data, err := json.Marshal(&ent)
 	if err != nil {
