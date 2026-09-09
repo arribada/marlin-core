@@ -30,7 +30,7 @@ func init() {
 	flag.StringVar(&flagAddr, "addr", "http://localhost:80", "address")
 	flag.StringVar(&flagService, "svc", "", "service to restart")
 	flag.BoolVar(&flagVerbose, "v", true, "be verbose")
-	flag.IntVar(&flagPause, "pause", 1, "pause in seconds between stop and restart")
+	flag.IntVar(&flagPause, "pause", 1, "pause in seconds between stop and restart. No restart if pause < 0.")
 }
 
 func checkConf() {
@@ -69,6 +69,10 @@ func restartService(serviceName string) error {
 		return err
 	}
 	fmt.Println(serviceName, "stopped")
+
+	if flagPause < 0 {
+		return nil
+	}
 
 	time.Sleep(time.Duration(flagPause) * time.Second)
 	start = true
