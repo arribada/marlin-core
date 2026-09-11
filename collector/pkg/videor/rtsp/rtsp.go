@@ -282,6 +282,7 @@ func (v *Videor) handleRequest(start bool) {
 	// !start == stop
 	if !start {
 		if v.Forever {
+			logger.Printf("ignoring stop request in forever mode")
 			// ignoring stop requests
 			return
 		}
