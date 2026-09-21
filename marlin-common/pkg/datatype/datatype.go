@@ -31,6 +31,17 @@ const (
 )
 
 var (
+	// we want a slice, for consistent looping order in populator.
+	// also, we need the audio processing to happen before the stt, as
+	// the stts will be created on the fly from the audio.
+	// TODO: backport to main repo
+	Dirnames = []string{
+		"audio",
+		"buttonpress",
+		"gps",
+		"stt",
+		"video",
+	}
 	PrefixesByType = map[int]string{
 		Audio:        "audio",
 		Video:        "video",

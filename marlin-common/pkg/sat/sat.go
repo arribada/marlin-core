@@ -11,11 +11,18 @@ import (
 	"time"
 )
 
+// TODO: maybe add Acquired? using it only for JFAs for now.
 type Alert struct {
 	Latitude  float64
 	Longitude float64
 	Time      time.Time
 }
+
+type AlertByTime []Alert
+
+func (a AlertByTime) Len() int           { return len(a) }
+func (a AlertByTime) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a AlertByTime) Less(i, j int) bool { return a[i].Time.Before(a[j].Time) }
 
 const (
 	latWidth  = 4
