@@ -31,9 +31,11 @@
 	],
 	"BootloaderExtraLines": [
 		"usb_max_current_enable=1",
-		"PSU_MAX_CURRENT=5000",
 		"dtoverlay=gpio-shutdown"
 	],
+	"BootloaderExtraEEPROM": [
+		"PSU_MAX_CURRENT=5000"
+    ],
 	"PackageConfig": {
 		"github.com/arribada/marlin-core/ap/cmd/ap": {
 			"ExtraFilePaths": {
