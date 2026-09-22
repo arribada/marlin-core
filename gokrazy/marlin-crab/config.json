@@ -30,6 +30,8 @@
 		"github.com/rtr7/router7/cmd/dhcp4d"
 	],
 	"BootloaderExtraLines": [
+		"usb_max_current_enable=1",
+		"PSU_MAX_CURRENT=5000",
 		"dtoverlay=gpio-shutdown"
 	],
 	"PackageConfig": {
