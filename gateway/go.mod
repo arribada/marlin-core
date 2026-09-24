@@ -1,4 +1,4 @@
-module github.com/mpl/cgodemo/gateway
+module github.com/arribada/marlin-core/gateway
 
 go 1.24.0
 
