@@ -31,6 +31,7 @@
 	],
 	"BootloaderExtraLines": [
 		"usb_max_current_enable=1",
+		"arm_freq=1500",
 		"dtoverlay=gpio-shutdown"
 	],
 	"BootloaderExtraEEPROM": [
@@ -210,7 +211,7 @@
 				"-modelpath=/perm/transcribe/models/ggml-base.en.bin",
 				"-v=true",
 				"-stdout=true",
-				"-transcribe=false",
+				"-transcribe=true",
 				"-outdir=/perm/marlin"
 			]
 		},

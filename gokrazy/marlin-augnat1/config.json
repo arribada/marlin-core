@@ -28,7 +28,8 @@
 		"github.com/rtr7/router7/cmd/dhcp4d"
 	],
 	"BootloaderExtraLines": [
-		"usb_max_current_enable=1"
+		"usb_max_current_enable=1",
+		"arm_freq=1500"
 	],
 	"BootloaderExtraEEPROM": [
 		"PSU_MAX_CURRENT=5000"
