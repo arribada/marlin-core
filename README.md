@@ -1,5 +1,5 @@
 # marlin-core
-Code for the core box of the marlin project
+Code for the core box of the [MARLIN project](https://resilience.esa.int/archives/projects/marlin)
 
 # requirements
 
